@@ -115,32 +115,28 @@
     }
     .btn-header-sm:hover { background: rgba(255,255,255,0.18); }
 
-    /* ── TAB BAR ── */
-    .tab-bar {
+    /* ── APP BODY ── */
+    .app-body { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+
+    /* ── BOTTOM TAB BAR ── */
+    .bottom-tab-bar {
       background: var(--color-background-primary);
-      border-bottom: 1px solid var(--color-border-tertiary);
+      border-top: 1px solid var(--color-border-tertiary);
       display: flex;
-      padding: 0 16px;
-      overflow-x: auto;
+      flex-shrink: 0;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
     }
     .tab-btn {
-      background: none;
-      border: none;
-      border-bottom: 2px solid transparent;
-      font-family: inherit;
-      font-size: 13px;
-      font-weight: 500;
+      flex: 1; background: none; border: none;
+      font-family: inherit; font-size: 11px; font-weight: 500;
       color: var(--color-text-secondary);
-      padding: 11px 13px;
-      cursor: pointer;
-      white-space: nowrap;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      transition: color 0.12s;
+      padding: 10px 4px 8px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      min-height: 56px; transition: color 0.12s;
     }
+    .tab-btn i { font-size: 22px; }
     .tab-btn:hover { color: var(--color-text-primary); }
-    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn.active { color: var(--accent); }
 
     /* ── NOTIFICATION STRIP ── */
     .notification-strip {
@@ -201,8 +197,8 @@
     .form-group input,
     .form-group select,
     .form-group textarea {
-      font-family: inherit; font-size: 13px;
-      padding: 7px 9px;
+      font-family: inherit; font-size: 16px;
+      padding: 10px 11px;
       border: 1px solid var(--color-border-tertiary);
       border-radius: 6px;
       background: var(--color-background-secondary);
@@ -239,8 +235,8 @@
       border: 1px solid var(--color-border-tertiary);
       background: var(--color-background-primary);
       color: var(--color-text-secondary);
-      padding: 4px 12px; border-radius: 20px;
-      font-size: 12px; font-weight: 500;
+      padding: 7px 14px; border-radius: 20px;
+      font-size: 13px; font-weight: 500;
       cursor: pointer; font-family: inherit;
       display: flex; align-items: center; gap: 4px;
       transition: all 0.12s;
@@ -251,12 +247,12 @@
     .search-wrap i { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-size: 14px; pointer-events: none; }
     .search-input {
       width: 100%;
-      padding: 6px 10px 6px 30px;
+      padding: 9px 10px 9px 34px;
       border: 1px solid var(--color-border-tertiary);
       border-radius: 20px;
       background: var(--color-background-primary);
       color: var(--color-text-primary);
-      font-family: inherit; font-size: 13px; outline: none;
+      font-family: inherit; font-size: 16px; outline: none;
     }
     .search-input:focus { border-color: var(--accent); }
     .result-count { font-size: 12px; color: var(--color-text-secondary); margin-left: auto; }
@@ -292,18 +288,18 @@
       letter-spacing: 0.6px;
     }
     .card-body { padding: 9px 10px 10px; flex: 1; display: flex; flex-direction: column; gap: 1px; }
-    .card-brand { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-secondary); }
-    .card-colour { font-size: 13px; font-weight: 600; line-height: 1.25; margin-top: 1px; }
-    .card-type { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 5px; }
+    .card-brand { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-secondary); }
+    .card-colour { font-size: 15px; font-weight: 600; line-height: 1.25; margin-top: 1px; }
+    .card-type { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 5px; }
     .card-qty-row { display: flex; align-items: baseline; gap: 3px; margin-top: 2px; }
-    .card-qty { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600; }
-    .card-qty-unit { font-size: 11px; color: var(--color-text-secondary); }
+    .card-qty { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 600; }
+    .card-qty-unit { font-size: 12px; color: var(--color-text-secondary); }
     .qty-bar-wrap { height: 3px; background: var(--color-border-tertiary); border-radius: 2px; margin: 5px 0 7px; overflow: hidden; }
     .qty-bar-fill { height: 100%; border-radius: 2px; }
     .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
     .status-badge {
-      font-size: 9.5px; font-weight: 700;
-      padding: 2px 7px; border-radius: 9px;
+      font-size: 11px; font-weight: 700;
+      padding: 3px 8px; border-radius: 9px;
       text-transform: uppercase; letter-spacing: 0.3px;
     }
     .status-badge.critical { background: var(--color-background-danger); color: var(--color-text-danger); }
@@ -311,13 +307,13 @@
     .status-badge.good { background: var(--color-background-info); color: var(--color-text-info); }
     .card-icons { display: flex; gap: 3px; }
     .icon-btn {
-      width: 25px; height: 25px;
+      width: 36px; height: 36px;
       border: 1px solid var(--color-border-tertiary);
-      border-radius: 5px;
+      border-radius: 7px;
       background: var(--color-background-secondary);
       color: var(--color-text-secondary);
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; font-size: 13px;
+      cursor: pointer; font-size: 16px;
       transition: all 0.12s;
     }
     .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -330,8 +326,8 @@
       border: 1px solid var(--color-border-tertiary);
       background: var(--color-background-secondary);
       color: var(--color-text-secondary);
-      font-family: inherit; font-size: 10px; font-weight: 600;
-      padding: 4px 2px; border-radius: 5px;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      padding: 8px 2px; border-radius: 7px;
       cursor: pointer; text-align: center;
       transition: all 0.12s;
     }
@@ -539,13 +535,31 @@
   .setup-steps b { color: var(--color-text-primary); }
   .setup-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-text-secondary); margin: 12px 0 6px; }
   .btn-save {
-    background: var(--accent); color: #fff; border: none;
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.55);
+    border: 1px solid rgba(255,255,255,0.18);
     padding: 7px 14px; border-radius: 8px; font-family: inherit;
     font-size: 13px; font-weight: 600; cursor: pointer;
     display: flex; align-items: center; gap: 5px;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
   }
-  .btn-save:hover { opacity: 0.88; }
-  .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-save.dirty {
+    background: var(--accent); color: #fff; border-color: transparent;
+    animation: save-pulse 2s ease-in-out infinite;
+  }
+  @keyframes save-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(216,90,48,0.5); }
+    50%       { box-shadow: 0 0 0 7px rgba(216,90,48,0); }
+  }
+  .btn-save:hover:not(:disabled) { opacity: 0.88; }
+  .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
+  @media (max-width: 480px) {
+    .app-header { padding: 10px 12px; gap: 6px; }
+    .app-logo-text { font-size: 15px; white-space: nowrap; }
+    .btn-label { display: none; }
+    .btn-save, .btn-header-sm { padding: 8px 10px; }
+    .btn-add { padding: 8px 11px; }
+  }
   </style>
 </head>
 <body>
@@ -606,7 +620,7 @@
 </div>
 
 <!-- APP (hidden until connected) -->
-<div id="appContent" style="display:none">
+<div id="appContent" style="display:none;flex-direction:column;height:100vh">
 
 <!-- HEADER -->
 <header class="app-header">
@@ -621,38 +635,25 @@
   <div class="header-right">
     <span class="low-stock-badge" id="lowStockBadge"></span>
     <button class="btn-save" id="btnSave" onclick="saveToGist()">
-      <i class="ti ti-device-floppy"></i> Save
+      <i class="ti ti-device-floppy"></i><span class="btn-label"> Save</span>
     </button>
     <button class="btn-header-sm" onclick="exportAllZip()" title="Export all CSVs as ZIP">
-      <i class="ti ti-download"></i> Export
+      <i class="ti ti-download"></i><span class="btn-label"> Export</span>
     </button>
     <button class="btn-add" id="btnAdd" onclick="toggleAddForm()">
-      <i class="ti ti-plus"></i> Add filament
+      <i class="ti ti-plus"></i><span class="btn-label"> Add filament</span>
     </button>
   </div>
 </header>
 
-<!-- TAB BAR -->
-<nav class="tab-bar">
-  <button class="tab-btn active" data-tab="inventory" onclick="switchTab('inventory')">
-    <i class="ti ti-box"></i> Inventory
-  </button>
-  <button class="tab-btn" data-tab="shopping" onclick="switchTab('shopping')">
-    <i class="ti ti-shopping-cart"></i> Shopping List
-  </button>
-  <button class="tab-btn" data-tab="history" onclick="switchTab('history')">
-    <i class="ti ti-history"></i> Purchase History
-  </button>
-  <button class="tab-btn" data-tab="stocktake" onclick="switchTab('stocktake')">
-    <i class="ti ti-clipboard-check"></i> Stocktake
-  </button>
-</nav>
 
 <!-- NOTIFICATION STRIP -->
 <div class="notification-strip" id="notifStrip">
   <span class="notif-msg" id="notifMsg"></span>
   <div class="notif-actions" id="notifActions"></div>
 </div>
+
+<div class="app-body">
 
 <!-- ADD FORM -->
 <div class="inline-form-panel" id="addFormPanel">
@@ -849,6 +850,23 @@
   </div>
 
 </div>
+</div><!-- app-body -->
+
+<nav class="bottom-tab-bar">
+  <button class="tab-btn active" data-tab="inventory" onclick="switchTab('inventory')">
+    <i class="ti ti-box"></i> Inventory
+  </button>
+  <button class="tab-btn" data-tab="shopping" onclick="switchTab('shopping')">
+    <i class="ti ti-shopping-cart"></i> List
+  </button>
+  <button class="tab-btn" data-tab="history" onclick="switchTab('history')">
+    <i class="ti ti-history"></i> History
+  </button>
+  <button class="tab-btn" data-tab="stocktake" onclick="switchTab('stocktake')">
+    <i class="ti ti-clipboard-check"></i> Stocktake
+  </button>
+</nav>
+
 </div><!-- #appContent -->
 
 <script>
@@ -866,7 +884,25 @@ const S = {
   addOpen: false,
   purchaseId: null,
   pendingUsedId: null,
+  dirty: false,
 };
+
+function setDirty(val) {
+  S.dirty = val;
+  const btn = document.getElementById('btnSave');
+  if (!btn) return;
+  if (val) {
+    btn.classList.add('dirty');
+    btn.innerHTML = '<i class="ti ti-device-floppy"></i> Save changes';
+  } else {
+    btn.classList.remove('dirty');
+    btn.innerHTML = '<i class="ti ti-device-floppy"></i> Save';
+  }
+}
+
+window.addEventListener('beforeunload', e => {
+  if (S.dirty) { e.preventDefault(); e.returnValue = ''; }
+});
 
 // ═══════════════════════════════════════
 //  GIST CREDENTIALS
@@ -881,7 +917,7 @@ function showSetup(error) {
 }
 function hideSetup() {
   document.getElementById('setupScreen').style.display = 'none';
-  document.getElementById('appContent').style.display  = 'block';
+  document.getElementById('appContent').style.display  = 'flex';
 }
 function clearSetupError() { document.getElementById('setupError').classList.remove('show'); }
 
@@ -950,6 +986,7 @@ async function saveToGist() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader"></i> Saving…'; }
   try {
     await _pushToGist(token, gistId);
+    setDirty(false);
     notify('Saved ✓', 'success');
   } catch (e) {
     notify(`Save failed: ${e.message}`, 'error');
@@ -1350,6 +1387,7 @@ function toggleList(id) {
   if (!item) return;
   const was = onList(item);
   item.on_shopping_list = String(!was);
+  setDirty(true);
   renderInventory();
   renderShopping();
   notify(was ? `Removed ${item.colour} from shopping list` : `Added ${item.colour} to shopping list`, 'success');
@@ -1401,6 +1439,7 @@ function markUsed() {
     notes: 'marked as used',
   });
   recalcAll();
+  setDirty(true);
   renderAll();
   dismissNotif();
   notify(`Marked 1 spool of ${item.colour} as used.`, 'success');
@@ -1453,7 +1492,7 @@ function saveNewFilament() {
     });
   }
 
-  recalcAll(); renderAll();
+  recalcAll(); setDirty(true); renderAll();
   toggleAddForm();
   notify(`Added ${colour} (${brand}) to inventory.`, 'success');
 }
@@ -1492,7 +1531,7 @@ function saveEdit() {
   item.spool_weight_g      = document.getElementById('ef-weight').value;
   item.low_stock_threshold = document.getElementById('ef-threshold').value;
   item.notes               = document.getElementById('ef-notes').value.trim();
-  renderAll(); closeEditForm();
+  setDirty(true); renderAll(); closeEditForm();
   notify(`Updated ${item.colour}.`, 'success');
 }
 
@@ -1540,7 +1579,7 @@ function savePurchase() {
       notes:     document.getElementById('pf-notes').value.trim(),
     });
   }
-  recalcAll(); renderAll();
+  recalcAll(); setDirty(true); renderAll();
   closePurchaseForm();
   notify(`Logged ${qty} spool${qty!==1?'s':''} of ${item.colour}.`, 'success');
 }
@@ -1577,7 +1616,7 @@ function confirmStocktake() {
   });
   if (!entries.length) { notify('No changes — all counts match calculated values.', 'info'); return; }
   S.stocktakes.push(...entries);
-  recalcAll(); renderAll();
+  recalcAll(); setDirty(true); renderAll();
   notify(`Stocktake recorded: ${entries.length} item${entries.length!==1?'s':''} updated.`, 'success');
 }
 
