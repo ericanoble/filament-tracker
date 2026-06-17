@@ -24,7 +24,7 @@ id,brand,family,type,colour,hex,spool_weight_g,qty_on_hand,low_stock_threshold,o
 23,eSUN,PLA,PLA+ HS,Skin/Beige,#D4A873,1000,1,1,false,
 24,eSUN,PLA,PLA+ HS,Space Blue,#2B3D6B,1000,2,1,false,
 25,eSUN,PLA,PLA+ HS,Very Peri,#6667AB,1000,1,1,false,
-26,eSUN,PLA,PLA+ HS,White (Warm White),#FFF8EC,1000,5,1,false,
+26,eSUN,PLA,PLA+ HS,White (Warm White),#FFF8EC,1000,5,2,false,
 27,eSUN,PLA,PLA+ HS,Yellow,#F2D31E,1000,1,1,false,
 28,eSUN,PLA,standard,Clear,#D8EEF5,1000,1,1,false,
 29,eSUN,Silk PLA,Mystic Triple Colour,Gold/Red/Green,#C5A820,1000,1,1,false,
