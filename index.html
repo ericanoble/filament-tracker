@@ -910,6 +910,14 @@ window.addEventListener('beforeunload', e => {
 const STORE_TOKEN = 'st_token';
 const STORE_GIST  = 'st_gist';
 
+function lsGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function lsSet(key, val) { try { localStorage.setItem(key, val); return true; } catch { return false; } }
+function lsDel(key) { try { localStorage.removeItem(key); } catch {} }
+function lsAvailable() {
+  try { localStorage.setItem('__test','1'); localStorage.removeItem('__test'); return true; }
+  catch { return false; }
+}
+
 function showSetup(error) {
   document.getElementById('setupScreen').style.display = 'flex';
   document.getElementById('appContent').style.display  = 'none';
@@ -956,12 +964,12 @@ async function connectGist() {
         fetchCSV('./stocktakes.csv'),
       ]);
       if (inv.length) { S.inventory = inv; S.purchases = pur; S.stocktakes = stk; }
-      localStorage.setItem(STORE_TOKEN, token);
-      localStorage.setItem(STORE_GIST,  gistId);
+      lsSet(STORE_TOKEN, token);
+      lsSet(STORE_GIST,  gistId);
       await _pushToGist(token, gistId);
     } else {
-      localStorage.setItem(STORE_TOKEN, token);
-      localStorage.setItem(STORE_GIST,  gistId);
+      lsSet(STORE_TOKEN, token);
+      lsSet(STORE_GIST,  gistId);
     }
 
     recalcAll(); hideSetup(); renderAll();
@@ -979,8 +987,8 @@ function inv_was_empty(gist) {
 }
 
 async function saveToGist() {
-  const token  = localStorage.getItem(STORE_TOKEN);
-  const gistId = localStorage.getItem(STORE_GIST);
+  const token  = lsGet(STORE_TOKEN);
+  const gistId = lsGet(STORE_GIST);
   if (!token || !gistId) { notify('Not connected to Gist.', 'error'); return; }
   const btn = document.getElementById('btnSave');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader"></i> Saving…'; }
@@ -1012,8 +1020,8 @@ async function _pushToGist(token, gistId) {
 }
 
 function disconnect() {
-  localStorage.removeItem(STORE_TOKEN);
-  localStorage.removeItem(STORE_GIST);
+  lsDel(STORE_TOKEN);
+  lsDel(STORE_GIST);
   location.reload();
 }
 
@@ -1030,15 +1038,19 @@ async function fetchCSV(path) {
 }
 
 async function loadData() {
-  const token  = localStorage.getItem(STORE_TOKEN);
-  const gistId = localStorage.getItem(STORE_GIST);
+  if (!lsAvailable()) {
+    showSetup('Your browser is blocking storage for this page. Please open the app via its GitHub Pages URL (https://...) rather than from a file or data: link.');
+    return;
+  }
+  const token  = lsGet(STORE_TOKEN);
+  const gistId = lsGet(STORE_GIST);
   if (!token || !gistId) { showSetup(); return; }
   try {
     const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     if (resp.status === 401 || resp.status === 404) {
-      localStorage.removeItem(STORE_TOKEN); localStorage.removeItem(STORE_GIST);
+      lsDel(STORE_TOKEN); lsDel(STORE_GIST);
       showSetup('Your saved credentials are no longer valid. Please reconnect.');
       return;
     }
