@@ -140,14 +140,13 @@ This is the core business logic. For each inventory item:
 - "Import" file picker: lets user load a CSV from disk to replace/merge data (useful after direct GitHub edits)
 - On app load: `fetch('./inventory.csv')`, `fetch('./purchases.csv')`, `fetch('./stocktakes.csv')` — graceful 404 handling (start empty if files not found)
 
-### Pending features (user was asked, hasn't answered yet)
-These were presented as a multi-select. Check with the user before implementing:
-- Print job log (4th CSV: prints.csv — logs filament used per print, auto-decreases stock)
-- Cost tracking (add price_per_spool to purchases.csv, show total spend)
-- Usage & spend charts (bar/pie breakdown by material, spend over time)
-- QR label generator (printable A4 sheet of QR codes for physical spool labelling)
-- AMS slot notation (which printer + slot a spool is currently loaded in)
-- Weight tracking for open spools (grams remaining on currently-open spool)
+### Deferred features (not in v1 — user confirmed not needed yet)
+- Print job log
+- Cost tracking
+- Usage & spend charts
+- QR label generator
+- AMS slot notation
+- Weight tracking for open spools
 
 ---
 

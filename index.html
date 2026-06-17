@@ -1,0 +1,1410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spool Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --header-bg: #1C1C2E;
+      --accent: #D85A30;
+      --color-background-primary: #ffffff;
+      --color-background-secondary: #f6f6fa;
+      --color-background-tertiary: #eeeff5;
+      --color-text-primary: #18182e;
+      --color-text-secondary: #6b6b8a;
+      --color-border-tertiary: #dddde8;
+      --color-text-danger: #c0392b;
+      --color-background-danger: #fde8e8;
+      --color-text-warning: #9a6000;
+      --color-background-warning: #fff3cd;
+      --color-text-info: #1a5bbf;
+      --color-background-info: #e8f0fb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-background-primary: #1e1e2e;
+        --color-background-secondary: #252538;
+        --color-background-tertiary: #13131f;
+        --color-text-primary: #ddddf0;
+        --color-text-secondary: #8888aa;
+        --color-border-tertiary: #2e2e48;
+        --color-text-danger: #ff7070;
+        --color-background-danger: #3d1515;
+        --color-text-warning: #ffd166;
+        --color-background-warning: #3d2e00;
+        --color-text-info: #66aaff;
+        --color-background-info: #0d2040;
+      }
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--color-background-tertiary);
+      color: var(--color-text-primary);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .app-header {
+      background: var(--header-bg);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .app-logo {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      color: #fff;
+      text-decoration: none;
+    }
+    .app-logo-text { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
+    .low-stock-badge {
+      background: rgba(216,90,48,0.22);
+      color: #ff9068;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: none;
+      white-space: nowrap;
+    }
+    .low-stock-badge.visible { display: block; }
+    .btn-add {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn-add:hover { background: #c04e28; }
+    .btn-header-sm {
+      background: rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.75);
+      border: 1px solid rgba(255,255,255,0.18);
+      padding: 7px 13px;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn-header-sm:hover { background: rgba(255,255,255,0.18); }
+
+    /* ── TAB BAR ── */
+    .tab-bar {
+      background: var(--color-background-primary);
+      border-bottom: 1px solid var(--color-border-tertiary);
+      display: flex;
+      padding: 0 16px;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--color-text-secondary);
+      padding: 11px 13px;
+      cursor: pointer;
+      white-space: nowrap;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: color 0.12s;
+    }
+    .tab-btn:hover { color: var(--color-text-primary); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    /* ── NOTIFICATION STRIP ── */
+    .notification-strip {
+      background: var(--color-background-info);
+      color: var(--color-text-info);
+      padding: 9px 18px;
+      font-size: 13px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .notification-strip.show { display: flex; }
+    .notification-strip.error  { background: var(--color-background-danger); color: var(--color-text-danger); }
+    .notification-strip.success { background: #e6f7ee; color: #1a7a40; }
+    .notification-strip.confirm { background: var(--color-background-warning); color: var(--color-text-warning); }
+    @media (prefers-color-scheme: dark) {
+      .notification-strip.success { background: #0d2a18; color: #66d494; }
+    }
+    .notif-msg { flex: 1; }
+    .notif-actions { display: flex; gap: 7px; flex-shrink: 0; }
+    .btn-confirm {
+      background: var(--accent); color: #fff; border: none;
+      padding: 4px 12px; border-radius: 6px;
+      font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .btn-cancel {
+      background: var(--color-border-tertiary); color: var(--color-text-primary);
+      border: none; padding: 4px 12px; border-radius: 6px;
+      font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+
+    /* ── INLINE FORM PANELS ── */
+    .inline-form-panel {
+      background: var(--color-background-primary);
+      border-bottom: 2px solid var(--accent);
+      padding: 18px 20px;
+      display: none;
+    }
+    .inline-form-panel.show { display: block; }
+    .form-title {
+      font-size: 14px; font-weight: 700;
+      margin-bottom: 14px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 10px;
+    }
+    .form-group { display: flex; flex-direction: column; gap: 3px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label {
+      font-size: 10px; font-weight: 700;
+      color: var(--color-text-secondary);
+      text-transform: uppercase; letter-spacing: 0.6px;
+    }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+      font-family: inherit; font-size: 13px;
+      padding: 7px 9px;
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 6px;
+      background: var(--color-background-secondary);
+      color: var(--color-text-primary);
+      outline: none;
+    }
+    .form-group input:focus,
+    .form-group select:focus { border-color: var(--accent); }
+    .form-actions { margin-top: 14px; display: flex; gap: 8px; }
+    .btn-primary {
+      background: var(--accent); color: #fff; border: none;
+      padding: 8px 18px; border-radius: 8px;
+      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .btn-primary:hover { opacity: 0.88; }
+    .btn-secondary {
+      background: var(--color-background-secondary);
+      color: var(--color-text-secondary);
+      border: 1px solid var(--color-border-tertiary);
+      padding: 8px 18px; border-radius: 8px;
+      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+
+    /* ── MAIN ── */
+    .main-content { padding: 16px 20px; max-width: 1440px; margin: 0 auto; }
+
+    /* ── FILTER BAR ── */
+    .filter-bar {
+      display: flex; align-items: center;
+      gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+    }
+    .filter-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+    .chip {
+      border: 1px solid var(--color-border-tertiary);
+      background: var(--color-background-primary);
+      color: var(--color-text-secondary);
+      padding: 4px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 500;
+      cursor: pointer; font-family: inherit;
+      display: flex; align-items: center; gap: 4px;
+      transition: all 0.12s;
+    }
+    .chip:hover { border-color: var(--accent); color: var(--accent); }
+    .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .search-wrap { position: relative; flex: 1; min-width: 160px; max-width: 280px; }
+    .search-wrap i { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-size: 14px; pointer-events: none; }
+    .search-input {
+      width: 100%;
+      padding: 6px 10px 6px 30px;
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 20px;
+      background: var(--color-background-primary);
+      color: var(--color-text-primary);
+      font-family: inherit; font-size: 13px; outline: none;
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .result-count { font-size: 12px; color: var(--color-text-secondary); margin-left: auto; }
+
+    /* ── CARD GRID ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+      gap: 12px;
+    }
+
+    /* ── SPOOL CARD ── */
+    .spool-card {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 10px;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      transition: transform 0.14s, box-shadow 0.14s;
+    }
+    .spool-card:hover { transform: translateY(-2px); box-shadow: 0 6px 22px rgba(0,0,0,0.09); }
+    .colour-band {
+      height: 64px;
+      position: relative;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .colour-band.light-filament { border-bottom: 0.5px solid var(--color-border-tertiary); }
+    .list-pill {
+      position: absolute; top: 5px; right: 5px;
+      background: rgba(0,0,0,0.28); color: #fff;
+      font-size: 8.5px; font-weight: 700;
+      padding: 2px 6px; border-radius: 8px;
+      letter-spacing: 0.6px;
+    }
+    .card-body { padding: 9px 10px 10px; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+    .card-brand { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--color-text-secondary); }
+    .card-colour { font-size: 13px; font-weight: 600; line-height: 1.25; margin-top: 1px; }
+    .card-type { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 5px; }
+    .card-qty-row { display: flex; align-items: baseline; gap: 3px; margin-top: 2px; }
+    .card-qty { font-family: 'JetBrains Mono', monospace; font-size: 20px; font-weight: 600; }
+    .card-qty-unit { font-size: 11px; color: var(--color-text-secondary); }
+    .qty-bar-wrap { height: 3px; background: var(--color-border-tertiary); border-radius: 2px; margin: 5px 0 7px; overflow: hidden; }
+    .qty-bar-fill { height: 100%; border-radius: 2px; }
+    .card-footer { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+    .status-badge {
+      font-size: 9.5px; font-weight: 700;
+      padding: 2px 7px; border-radius: 9px;
+      text-transform: uppercase; letter-spacing: 0.3px;
+    }
+    .status-badge.critical { background: var(--color-background-danger); color: var(--color-text-danger); }
+    .status-badge.low { background: var(--color-background-warning); color: var(--color-text-warning); }
+    .status-badge.good { background: var(--color-background-info); color: var(--color-text-info); }
+    .card-icons { display: flex; gap: 3px; }
+    .icon-btn {
+      width: 25px; height: 25px;
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 5px;
+      background: var(--color-background-secondary);
+      color: var(--color-text-secondary);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 13px;
+      transition: all 0.12s;
+    }
+    .icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .icon-btn.on-list { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .card-btns {
+      display: flex; gap: 4px; margin-top: 5px;
+    }
+    .btn-used, .btn-buy {
+      flex: 1;
+      border: 1px solid var(--color-border-tertiary);
+      background: var(--color-background-secondary);
+      color: var(--color-text-secondary);
+      font-family: inherit; font-size: 10px; font-weight: 600;
+      padding: 4px 2px; border-radius: 5px;
+      cursor: pointer; text-align: center;
+      transition: all 0.12s;
+    }
+    .btn-used:hover:not(:disabled) { border-color: var(--color-text-danger); color: var(--color-text-danger); }
+    .btn-buy:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-used:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── EMPTY STATE ── */
+    .empty-state {
+      text-align: center; padding: 52px 20px;
+      color: var(--color-text-secondary);
+      grid-column: 1 / -1;
+    }
+    .empty-state i { font-size: 44px; display: block; margin-bottom: 10px; opacity: 0.25; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── SECTION TITLE ── */
+    .section-title {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.8px;
+      color: var(--color-text-secondary);
+      margin: 20px 0 8px;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .section-count {
+      background: var(--color-background-secondary);
+      color: var(--color-text-secondary);
+      border-radius: 9px; padding: 1px 7px; font-size: 10px;
+    }
+    .section-title:first-child { margin-top: 0; }
+
+    /* ── SHOPPING LIST ── */
+    .shopping-item {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 8px;
+      padding: 9px 12px;
+      display: flex; align-items: center; gap: 9px;
+      margin-bottom: 5px;
+    }
+    .colour-dot {
+      width: 28px; height: 28px;
+      border-radius: 6px; flex-shrink: 0;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .si-info { flex: 1; min-width: 0; }
+    .si-name { font-size: 13px; font-weight: 600; }
+    .si-meta { font-size: 11px; color: var(--color-text-secondary); }
+    .shopping-copy-btn {
+      margin-top: 14px;
+      background: var(--color-background-secondary);
+      border: 1px solid var(--color-border-tertiary);
+      color: var(--color-text-secondary);
+      padding: 8px 16px; border-radius: 8px;
+      font-family: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+    }
+    .shopping-copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* ── PURCHASE HISTORY ── */
+    .order-header {
+      font-size: 11px; font-weight: 700;
+      color: var(--color-text-secondary);
+      text-transform: uppercase; letter-spacing: 0.5px;
+      padding: 14px 0 6px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .order-header::after { content: ''; flex: 1; height: 1px; background: var(--color-border-tertiary); }
+    .order-header:first-child { padding-top: 0; }
+    .purchase-row {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 8px;
+      padding: 9px 13px;
+      display: flex; align-items: center; gap: 9px;
+      margin-bottom: 4px;
+    }
+    .pr-date { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--color-text-secondary); min-width: 84px; }
+    .pr-dot { width: 20px; height: 20px; border-radius: 4px; flex-shrink: 0; border: 1px solid rgba(0,0,0,0.08); }
+    .pr-info { flex: 1; min-width: 0; }
+    .pr-name { font-size: 13px; font-weight: 600; }
+    .pr-meta { font-size: 11px; color: var(--color-text-secondary); }
+    .style-pill {
+      font-size: 9.5px; font-weight: 700;
+      padding: 2px 8px; border-radius: 9px;
+      text-transform: uppercase; letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+    .style-pill.spool { background: var(--color-background-info); color: var(--color-text-info); }
+    .style-pill.refilament { background: #e6f7ee; color: #1a7a40; }
+    .style-pill.used { background: var(--color-background-danger); color: var(--color-text-danger); }
+    @media (prefers-color-scheme: dark) {
+      .style-pill.refilament { background: #0d2a18; color: #66d494; }
+    }
+
+    /* ── STOCKTAKE ── */
+    .stocktake-intro {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 10px;
+      padding: 15px 18px;
+      margin-bottom: 14px;
+    }
+    .stocktake-intro h3 { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+    .stocktake-intro p { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 12px; }
+    .stocktake-intro-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+    .stocktake-row {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 8px;
+      padding: 9px 13px;
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 5px;
+    }
+    .st-info { flex: 1; }
+    .st-name { font-size: 13px; font-weight: 600; }
+    .st-meta { font-size: 11px; color: var(--color-text-secondary); }
+    .st-calc { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--color-text-secondary); white-space: nowrap; }
+    .st-input {
+      width: 58px; padding: 6px 7px;
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 6px;
+      background: var(--color-background-secondary);
+      color: var(--color-text-primary);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px; text-align: center; outline: none;
+    }
+    .st-input:focus { border-color: var(--accent); }
+
+    /* ── EXPORT / IMPORT PANELS ── */
+    .data-panel {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-top: 14px;
+      display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+    }
+    .data-panel-label { font-size: 13px; font-weight: 600; flex: 1; min-width: 120px; display: flex; align-items: center; gap: 6px; }
+    .btn-sm {
+      border: 1px solid var(--color-border-tertiary);
+      background: var(--color-background-secondary);
+      color: var(--color-text-secondary);
+      padding: 5px 12px; border-radius: 6px;
+      font-family: inherit; font-size: 12px; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; gap: 4px;
+    }
+    .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+    label.btn-sm { cursor: pointer; }
+
+    /* ── TAB CONTENT ── */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div class="app-logo">
+    <svg width="26" height="26" viewBox="0 0 44 44" fill="none">
+      <circle cx="22" cy="22" r="17" stroke="#fff" stroke-width="2.5" opacity="0.8"/>
+      <circle cx="22" cy="22" r="6.5" fill="#fff" opacity="0.8"/>
+      <circle cx="22" cy="22" r="2.6" fill="#1C1C2E"/>
+    </svg>
+    <span class="app-logo-text">Spool Tracker</span>
+  </div>
+  <div class="header-right">
+    <span class="low-stock-badge" id="lowStockBadge"></span>
+    <button class="btn-header-sm" onclick="exportAllZip()" title="Export all CSVs as ZIP">
+      <i class="ti ti-download"></i> Export
+    </button>
+    <button class="btn-add" id="btnAdd" onclick="toggleAddForm()">
+      <i class="ti ti-plus"></i> Add filament
+    </button>
+  </div>
+</header>
+
+<!-- TAB BAR -->
+<nav class="tab-bar">
+  <button class="tab-btn active" data-tab="inventory" onclick="switchTab('inventory')">
+    <i class="ti ti-box"></i> Inventory
+  </button>
+  <button class="tab-btn" data-tab="shopping" onclick="switchTab('shopping')">
+    <i class="ti ti-shopping-cart"></i> Shopping List
+  </button>
+  <button class="tab-btn" data-tab="history" onclick="switchTab('history')">
+    <i class="ti ti-history"></i> Purchase History
+  </button>
+  <button class="tab-btn" data-tab="stocktake" onclick="switchTab('stocktake')">
+    <i class="ti ti-clipboard-check"></i> Stocktake
+  </button>
+</nav>
+
+<!-- NOTIFICATION STRIP -->
+<div class="notification-strip" id="notifStrip">
+  <span class="notif-msg" id="notifMsg"></span>
+  <div class="notif-actions" id="notifActions"></div>
+</div>
+
+<!-- ADD FORM -->
+<div class="inline-form-panel" id="addFormPanel">
+  <div class="form-title"><i class="ti ti-plus"></i> Add New Filament</div>
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Brand *</label>
+      <input type="text" id="af-brand" placeholder="e.g. eSUN">
+    </div>
+    <div class="form-group">
+      <label>Family</label>
+      <select id="af-family">
+        <option>PLA</option><option>PETG</option><option>TPU</option>
+        <option>Silk PLA</option><option>ABS</option><option>ASA</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <input type="text" id="af-type" placeholder="e.g. PLA+ HS">
+    </div>
+    <div class="form-group">
+      <label>Colour Name *</label>
+      <input type="text" id="af-colour" placeholder="e.g. Fire Engine Red">
+    </div>
+    <div class="form-group">
+      <label>Colour</label>
+      <input type="color" id="af-hex" value="#FF0000" style="height:36px;padding:2px 4px;cursor:pointer">
+    </div>
+    <div class="form-group">
+      <label>Spool Weight (g)</label>
+      <input type="number" id="af-weight" value="1000">
+    </div>
+    <div class="form-group">
+      <label>Low Stock Threshold</label>
+      <input type="number" id="af-threshold" value="1" min="0">
+    </div>
+    <div class="form-group">
+      <label>Initial Qty (spools)</label>
+      <input type="number" id="af-qty" value="1" min="0">
+    </div>
+    <div class="form-group">
+      <label>Supplier</label>
+      <input type="text" id="af-supplier" placeholder="e.g. Cubic Technology">
+    </div>
+    <div class="form-group">
+      <label>Order ID</label>
+      <input type="text" id="af-order" placeholder="e.g. #12345SP">
+    </div>
+    <div class="form-group">
+      <label>Style</label>
+      <select id="af-style">
+        <option value="spool">Spool</option>
+        <option value="refilament">Refilament</option>
+      </select>
+    </div>
+    <div class="form-group full">
+      <label>Notes</label>
+      <input type="text" id="af-notes" placeholder="Optional">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button class="btn-primary" onclick="saveNewFilament()">Add Filament</button>
+    <button class="btn-secondary" onclick="toggleAddForm()">Cancel</button>
+  </div>
+</div>
+
+<!-- EDIT FORM -->
+<div class="inline-form-panel" id="editFormPanel">
+  <div class="form-title"><i class="ti ti-edit"></i> Edit Filament</div>
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Brand</label>
+      <input type="text" id="ef-brand">
+    </div>
+    <div class="form-group">
+      <label>Family</label>
+      <select id="ef-family">
+        <option>PLA</option><option>PETG</option><option>TPU</option>
+        <option>Silk PLA</option><option>ABS</option><option>ASA</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <input type="text" id="ef-type">
+    </div>
+    <div class="form-group">
+      <label>Colour Name</label>
+      <input type="text" id="ef-colour">
+    </div>
+    <div class="form-group">
+      <label>Colour</label>
+      <input type="color" id="ef-hex" style="height:36px;padding:2px 4px;cursor:pointer">
+    </div>
+    <div class="form-group">
+      <label>Spool Weight (g)</label>
+      <input type="number" id="ef-weight">
+    </div>
+    <div class="form-group">
+      <label>Low Stock Threshold</label>
+      <input type="number" id="ef-threshold" min="0">
+    </div>
+    <div class="form-group full">
+      <label>Notes</label>
+      <input type="text" id="ef-notes">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button class="btn-primary" onclick="saveEdit()">Save Changes</button>
+    <button class="btn-secondary" onclick="closeEditForm()">Cancel</button>
+  </div>
+</div>
+
+<!-- PURCHASE FORM -->
+<div class="inline-form-panel" id="purchaseFormPanel">
+  <div class="form-title"><i class="ti ti-shopping-cart"></i> Log Purchase</div>
+  <input type="hidden" id="pf-id">
+  <div class="form-grid">
+    <div class="form-group">
+      <label>Filament</label>
+      <input type="text" id="pf-name" readonly style="opacity:.65;cursor:default">
+    </div>
+    <div class="form-group">
+      <label>Purchase Date</label>
+      <input type="date" id="pf-date">
+    </div>
+    <div class="form-group">
+      <label>Qty (spools)</label>
+      <input type="number" id="pf-qty" value="1" min="1">
+    </div>
+    <div class="form-group">
+      <label>Order ID</label>
+      <input type="text" id="pf-order">
+    </div>
+    <div class="form-group">
+      <label>Supplier</label>
+      <input type="text" id="pf-supplier">
+    </div>
+    <div class="form-group">
+      <label>Style</label>
+      <select id="pf-style">
+        <option value="spool">Spool</option>
+        <option value="refilament">Refilament</option>
+      </select>
+    </div>
+    <div class="form-group full">
+      <label>Notes</label>
+      <input type="text" id="pf-notes">
+    </div>
+  </div>
+  <div class="form-actions">
+    <button class="btn-primary" onclick="savePurchase()">Log Purchase</button>
+    <button class="btn-secondary" onclick="closePurchaseForm()">Cancel</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main-content">
+
+  <!-- INVENTORY -->
+  <div class="tab-content active" id="tab-inventory">
+    <div class="filter-bar">
+      <div class="filter-chips">
+        <button class="chip active" data-filter="all" onclick="setFilter('all')">All</button>
+        <button class="chip" data-filter="PLA" onclick="setFilter('PLA')">PLA</button>
+        <button class="chip" data-filter="PETG" onclick="setFilter('PETG')">PETG</button>
+        <button class="chip" data-filter="TPU" onclick="setFilter('TPU')">TPU</button>
+        <button class="chip" data-filter="Silk PLA" onclick="setFilter('Silk PLA')">Silk PLA</button>
+        <button class="chip" data-filter="low" onclick="setFilter('low')">
+          <i class="ti ti-alert-triangle" style="font-size:10px"></i> Low stock
+        </button>
+      </div>
+      <div class="search-wrap">
+        <i class="ti ti-search"></i>
+        <input type="text" class="search-input" id="searchInput" placeholder="Search colour, brand, type…" oninput="handleSearch(this.value)">
+      </div>
+      <span class="result-count" id="resultCount"></span>
+    </div>
+    <div class="card-grid" id="cardGrid"></div>
+  </div>
+
+  <!-- SHOPPING LIST -->
+  <div class="tab-content" id="tab-shopping">
+    <div id="shoppingContent"></div>
+  </div>
+
+  <!-- PURCHASE HISTORY -->
+  <div class="tab-content" id="tab-history">
+    <div id="historyContent"></div>
+  </div>
+
+  <!-- STOCKTAKE -->
+  <div class="tab-content" id="tab-stocktake">
+    <div id="stocktakeContent"></div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════
+const S = {
+  inventory: [],
+  purchases: [],
+  stocktakes: [],
+  activeTab: 'inventory',
+  filter: 'all',
+  search: '',
+  editingId: null,
+  addOpen: false,
+  purchaseId: null,
+  pendingUsedId: null,
+};
+
+// ═══════════════════════════════════════
+//  LOAD
+// ═══════════════════════════════════════
+async function fetchCSV(path) {
+  try {
+    const r = await fetch(path);
+    if (!r.ok) return [];
+    const text = await r.text();
+    return Papa.parse(text, { header: true, skipEmptyLines: true }).data;
+  } catch { return []; }
+}
+
+async function loadData() {
+  const [inv, pur, stk] = await Promise.all([
+    fetchCSV('./inventory.csv'),
+    fetchCSV('./purchases.csv'),
+    fetchCSV('./stocktakes.csv'),
+  ]);
+  S.inventory = inv;
+  S.purchases = pur;
+  S.stocktakes = stk;
+  recalcAll();
+  renderAll();
+}
+
+// ═══════════════════════════════════════
+//  QTY CALC
+// ═══════════════════════════════════════
+function calcQty(invId) {
+  const id = String(invId);
+  const sorted = S.stocktakes
+    .filter(s => String(s.inventory_id) === id)
+    .sort((a, b) => new Date(b.stocktake_date) - new Date(a.stocktake_date));
+
+  let base = 0, baseDate = new Date(0);
+  if (sorted.length) {
+    base = parseInt(sorted[0].qty_counted) || 0;
+    baseDate = new Date(sorted[0].stocktake_date);
+  }
+
+  const net = S.purchases
+    .filter(p => String(p.inventory_id) === id && new Date(p.purchase_date) > baseDate)
+    .reduce((sum, p) => sum + (parseInt(p.qty_purchased) || 0), 0);
+
+  return Math.max(0, base + net);
+}
+
+function recalcAll() {
+  S.inventory.forEach(item => { item.qty_on_hand = String(calcQty(item.id)); });
+}
+
+// ═══════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════
+function status(item) {
+  const qty = parseInt(item.qty_on_hand) || 0;
+  const thr = parseInt(item.low_stock_threshold) || 1;
+  if (qty === 0) return 'critical';
+  if (qty <= thr) return 'low';
+  return 'good';
+}
+
+function isLight(hex) {
+  if (!hex || hex.length < 7) return true;
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return (r*299 + g*587 + b*114) / 1000 > 155;
+}
+
+function spoolSVG(hex) {
+  const light = isLight(hex);
+  const ic = light ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)';
+  const cc = light ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.5)';
+  return `<svg width="44" height="44" viewBox="0 0 44 44" fill="none" style="pointer-events:none">
+    <circle cx="22" cy="22" r="17" stroke="${ic}" stroke-width="2.5"/>
+    <circle cx="22" cy="22" r="6.5" fill="${ic}"/>
+    <circle cx="22" cy="22" r="2.6" fill="${cc}"/>
+  </svg>`;
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function nextId(arr) {
+  return arr.length ? Math.max(...arr.map(r => parseInt(r.id)||0)) + 1 : 1;
+}
+
+function todayStr() { return new Date().toISOString().slice(0,10); }
+
+function onList(item) { return item.on_shopping_list === 'true' || item.on_shopping_list === true; }
+
+// ═══════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════
+function renderAll() {
+  renderInventory();
+  renderShopping();
+  renderHistory();
+  renderStocktake();
+  updateBadge();
+}
+
+function getFiltered() {
+  const f = S.filter, q = S.search.toLowerCase();
+  return S.inventory.filter(item => {
+    if (f === 'low') { const s = status(item); if (s !== 'low' && s !== 'critical') return false; }
+    else if (f !== 'all' && item.family !== f) return false;
+    if (q) {
+      const hay = `${item.colour} ${item.brand} ${item.type} ${item.family}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function renderInventory() {
+  const items = getFiltered();
+  const count = document.getElementById('resultCount');
+  count.textContent = items.length === S.inventory.length
+    ? `${items.length} filaments`
+    : `${items.length} of ${S.inventory.length}`;
+
+  const grid = document.getElementById('cardGrid');
+  if (!items.length) {
+    grid.innerHTML = `<div class="empty-state"><i class="ti ti-search"></i><p>No filaments match</p></div>`;
+    return;
+  }
+  grid.innerHTML = items.map(renderCard).join('');
+}
+
+function renderCard(item) {
+  const qty = parseInt(item.qty_on_hand) || 0;
+  const st = status(item);
+  const hex = item.hex || '#888888';
+  const light = isLight(hex);
+  const listed = onList(item);
+  const barPct = Math.min(100, (qty / 6) * 100);
+  const barColor = st === 'critical' ? 'var(--color-text-danger)'
+    : st === 'low' ? 'var(--color-text-warning)'
+    : 'var(--color-text-info)';
+
+  return `<div class="spool-card" id="card-${item.id}">
+    <div class="colour-band${light ? ' light-filament' : ''}" style="background:${esc(hex)}">
+      ${spoolSVG(hex)}
+      ${listed ? '<span class="list-pill">LIST</span>' : ''}
+    </div>
+    <div class="card-body">
+      <div class="card-brand">${esc(item.brand)}</div>
+      <div class="card-colour">${esc(item.colour)}</div>
+      <div class="card-type">${esc(item.family)} · ${esc(item.type)}</div>
+      <div class="card-qty-row">
+        <span class="card-qty">${qty}</span>
+        <span class="card-qty-unit">spool${qty !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="qty-bar-wrap"><div class="qty-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
+      <div class="card-footer">
+        <span class="status-badge ${st}">${st}</span>
+        <div class="card-icons">
+          <button class="icon-btn${listed ? ' on-list' : ''}" title="Toggle shopping list" onclick="toggleList(${item.id})"><i class="ti ti-shopping-cart"></i></button>
+          <button class="icon-btn" title="Edit" onclick="openEditForm(${item.id})"><i class="ti ti-edit"></i></button>
+        </div>
+      </div>
+      <div class="card-btns">
+        <button class="btn-used" onclick="confirmUsed(${item.id})"${qty === 0 ? ' disabled' : ''}>− Used</button>
+        <button class="btn-buy" onclick="openPurchaseForm(${item.id})">+ Buy</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderShopping() {
+  const flagged = S.inventory.filter(item => { const s = status(item); return (s==='low'||s==='critical') && !onList(item); });
+  const manual  = S.inventory.filter(item => onList(item));
+
+  let html = '';
+
+  if (!flagged.length && !manual.length) {
+    html = `<div class="empty-state"><i class="ti ti-check"></i><p>Shopping list is empty — all stocked up!</p></div>`;
+  } else {
+    html += `<div class="section-title">Auto-flagged — Low or Critical <span class="section-count">${flagged.length}</span></div>`;
+    if (flagged.length) {
+      html += flagged.map(i => shoppingRow(i, false)).join('');
+    } else {
+      html += `<p style="font-size:13px;color:var(--color-text-secondary);padding:4px 0 8px">None — all auto-flagged items are sorted.</p>`;
+    }
+
+    html += `<div class="section-title">Manually added <span class="section-count">${manual.length}</span></div>`;
+    if (manual.length) {
+      html += manual.map(i => shoppingRow(i, true)).join('');
+    } else {
+      html += `<p style="font-size:13px;color:var(--color-text-secondary);padding:4px 0 8px">None — use the 🛒 button on any card to add.</p>`;
+    }
+
+    if (flagged.length || manual.length) {
+      html += `<button class="shopping-copy-btn" onclick="copyList()"><i class="ti ti-copy"></i> Copy list to clipboard</button>`;
+    }
+  }
+  document.getElementById('shoppingContent').innerHTML = html;
+}
+
+function shoppingRow(item, showRemove) {
+  const st = status(item);
+  const qty = parseInt(item.qty_on_hand) || 0;
+  return `<div class="shopping-item">
+    <div class="colour-dot" style="background:${esc(item.hex)}"></div>
+    <div class="si-info">
+      <div class="si-name">${esc(item.colour)}</div>
+      <div class="si-meta">${esc(item.brand)} · ${esc(item.type)} · ${qty} on hand</div>
+    </div>
+    <span class="status-badge ${st}">${st}</span>
+    ${showRemove ? `<button class="icon-btn" title="Remove from list" onclick="toggleList(${item.id})"><i class="ti ti-x"></i></button>` : ''}
+  </div>`;
+}
+
+function renderHistory() {
+  const sorted = [...S.purchases].sort((a,b) => new Date(b.purchase_date) - new Date(a.purchase_date));
+  if (!sorted.length) {
+    document.getElementById('historyContent').innerHTML =
+      `<div class="empty-state"><i class="ti ti-history"></i><p>No purchase history yet</p></div>`;
+    return;
+  }
+
+  // Group by order_id (fallback: by date)
+  const groups = new Map();
+  sorted.forEach(p => {
+    const key = (p.order_id||'').trim() || `_${p.purchase_date}`;
+    if (!groups.has(key)) groups.set(key, { label: (p.order_id||'').trim() || p.purchase_date, date: p.purchase_date, rows: [] });
+    groups.get(key).rows.push(p);
+  });
+  const orderedGroups = [...groups.values()].sort((a,b) => new Date(b.date)-new Date(a.date));
+
+  let html = '';
+  orderedGroups.forEach(g => {
+    html += `<div class="order-header">${esc(g.label)}</div>`;
+    g.rows.forEach(p => {
+      const item = S.inventory.find(i => String(i.id) === String(p.inventory_id));
+      const name = item ? item.colour : `ID ${p.inventory_id}`;
+      const meta = item ? `${item.brand} · ${item.family} · ${item.type}${p.supplier ? ' · '+p.supplier : ''}` : '';
+      const hex = item ? item.hex : '#888';
+      const qty = parseInt(p.qty_purchased)||0;
+      const styleKey = p.style === 'refilament' ? 'refilament' : p.style === 'used' ? 'used' : 'spool';
+      const qtyLabel = qty >= 0 ? `+${qty}` : String(qty);
+      html += `<div class="purchase-row">
+        <div class="pr-date">${esc(p.purchase_date)}</div>
+        <div class="pr-dot" style="background:${esc(hex)}"></div>
+        <div class="pr-info">
+          <div class="pr-name">${esc(name)}</div>
+          <div class="pr-meta">${esc(meta)}</div>
+        </div>
+        <span class="style-pill ${styleKey}">${qtyLabel} ${esc(p.style||'spool')}</span>
+      </div>`;
+    });
+  });
+
+  document.getElementById('historyContent').innerHTML = html;
+}
+
+function renderStocktake() {
+  let html = `<div class="stocktake-intro">
+    <h3>Physical stock count</h3>
+    <p>Enter the actual count for items where the calculated qty differs from what's on your shelf. Only changed values write a new stocktake record.</p>
+    <div class="stocktake-intro-btns">
+      <button class="btn-primary" onclick="confirmStocktake()"><i class="ti ti-clipboard-check"></i> Confirm stocktake</button>
+      <label class="btn-secondary" style="cursor:pointer"><i class="ti ti-upload"></i> Import stocktakes.csv<input type="file" accept=".csv" style="display:none" onchange="importStocktakesFile(this)"></label>
+    </div>
+  </div>`;
+
+  S.inventory.forEach(item => {
+    const qty = parseInt(item.qty_on_hand)||0;
+    html += `<div class="stocktake-row">
+      <div class="colour-dot" style="background:${esc(item.hex)};width:28px;height:28px;border-radius:6px;flex-shrink:0"></div>
+      <div class="st-info">
+        <div class="st-name">${esc(item.colour)}</div>
+        <div class="st-meta">${esc(item.brand)} · ${esc(item.type)}</div>
+      </div>
+      <div class="st-calc">calc: ${qty}</div>
+      <input type="number" class="st-input" id="st-${item.id}" placeholder="${qty}" min="0" data-calc="${qty}">
+    </div>`;
+  });
+
+  html += `<div class="data-panel">
+    <span class="data-panel-label"><i class="ti ti-download"></i> Export CSVs</span>
+    <button class="btn-sm" onclick="dlCSV('inventory')">inventory.csv</button>
+    <button class="btn-sm" onclick="dlCSV('purchases')">purchases.csv</button>
+    <button class="btn-sm" onclick="dlCSV('stocktakes')">stocktakes.csv</button>
+    <button class="btn-primary" onclick="exportAllZip()"><i class="ti ti-archive"></i> Download all (ZIP)</button>
+  </div>
+  <div class="data-panel">
+    <span class="data-panel-label"><i class="ti ti-upload"></i> Import CSV</span>
+    <label class="btn-sm"><i class="ti ti-database-import"></i> inventory.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('inventory',this)"></label>
+    <label class="btn-sm"><i class="ti ti-database-import"></i> purchases.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('purchases',this)"></label>
+    <label class="btn-sm"><i class="ti ti-database-import"></i> stocktakes.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('stocktakes',this)"></label>
+  </div>`;
+
+  document.getElementById('stocktakeContent').innerHTML = html;
+}
+
+function updateBadge() {
+  const n = S.inventory.filter(i => { const s=status(i); return s==='low'||s==='critical'; }).length;
+  const el = document.getElementById('lowStockBadge');
+  if (n > 0) { el.textContent = `⚠ ${n} low`; el.classList.add('visible'); }
+  else el.classList.remove('visible');
+}
+
+// ═══════════════════════════════════════
+//  TABS / FILTERS
+// ═══════════════════════════════════════
+function switchTab(tab) {
+  S.activeTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${tab}`));
+  closeAllForms();
+}
+
+function setFilter(f) {
+  S.filter = f;
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === f));
+  renderInventory();
+}
+
+function handleSearch(q) { S.search = q; renderInventory(); }
+
+// ═══════════════════════════════════════
+//  NOTIFICATIONS
+// ═══════════════════════════════════════
+let notifTimer = null;
+
+function notify(msg, type='info', actions=null, autoDismiss=3200) {
+  clearTimeout(notifTimer);
+  const strip = document.getElementById('notifStrip');
+  const msgEl = document.getElementById('notifMsg');
+  const actEl = document.getElementById('notifActions');
+  strip.className = `notification-strip show ${type}`;
+  msgEl.textContent = msg;
+  actEl.innerHTML = actions || `<button class="btn-cancel" onclick="dismissNotif()">✕</button>`;
+  if (!actions && autoDismiss) notifTimer = setTimeout(dismissNotif, autoDismiss);
+}
+
+function dismissNotif() {
+  document.getElementById('notifStrip').className = 'notification-strip';
+  S.pendingUsedId = null;
+  clearTimeout(notifTimer);
+}
+
+// ═══════════════════════════════════════
+//  SHOPPING LIST
+// ═══════════════════════════════════════
+function toggleList(id) {
+  const item = S.inventory.find(i => String(i.id) === String(id));
+  if (!item) return;
+  const was = onList(item);
+  item.on_shopping_list = String(!was);
+  renderInventory();
+  renderShopping();
+  notify(was ? `Removed ${item.colour} from shopping list` : `Added ${item.colour} to shopping list`, 'success');
+}
+
+function copyList() {
+  const flagged = S.inventory.filter(i => { const s=status(i); return (s==='low'||s==='critical') && !onList(i); });
+  const manual  = S.inventory.filter(i => onList(i));
+  const lines = ['Filament shopping list', ...([...flagged,...manual].map(i => {
+    const qty = parseInt(i.qty_on_hand)||0;
+    return `• ${i.brand} ${i.type} – ${i.colour} — ${qty} on hand (${status(i)})`;
+  }))];
+  navigator.clipboard.writeText(lines.join('\n'))
+    .then(() => notify('Shopping list copied to clipboard!', 'success'))
+    .catch(() => notify('Copy failed — try selecting the list manually.', 'error'));
+}
+
+// ═══════════════════════════════════════
+//  USED A SPOOL
+// ═══════════════════════════════════════
+function confirmUsed(id) {
+  const item = S.inventory.find(i => String(i.id) === String(id));
+  if (!item) return;
+  const qty = parseInt(item.qty_on_hand)||0;
+  if (qty === 0) { notify('No spools remaining to mark as used.', 'error'); return; }
+  S.pendingUsedId = id;
+  notify(
+    `Mark 1 spool of ${item.colour} as used? (qty will drop from ${qty} to ${qty-1})`,
+    'confirm',
+    `<button class="btn-confirm" onclick="markUsed()">Confirm</button>
+     <button class="btn-cancel" onclick="dismissNotif()">Cancel</button>`,
+    null
+  );
+}
+
+function markUsed() {
+  const id = S.pendingUsedId;
+  if (!id) return;
+  const item = S.inventory.find(i => String(i.id) === String(id));
+  if (!item) return;
+  S.purchases.push({
+    id: String(nextId(S.purchases)),
+    inventory_id: String(id),
+    purchase_date: todayStr(),
+    qty_purchased: '-1',
+    order_id: '',
+    supplier: '',
+    style: 'used',
+    notes: 'marked as used',
+  });
+  recalcAll();
+  renderAll();
+  dismissNotif();
+  notify(`Marked 1 spool of ${item.colour} as used.`, 'success');
+}
+
+// ═══════════════════════════════════════
+//  ADD FORM
+// ═══════════════════════════════════════
+function toggleAddForm() {
+  S.addOpen = !S.addOpen;
+  document.getElementById('addFormPanel').classList.toggle('show', S.addOpen);
+  document.getElementById('btnAdd').style.display = S.addOpen ? 'none' : '';
+  if (S.addOpen) { closeEditForm(); closePurchaseForm(); }
+}
+
+function saveNewFilament() {
+  const brand  = document.getElementById('af-brand').value.trim();
+  const colour = document.getElementById('af-colour').value.trim();
+  if (!brand || !colour) { notify('Brand and colour name are required.', 'error'); return; }
+
+  const newId = nextId(S.inventory);
+  const qty = parseInt(document.getElementById('af-qty').value)||0;
+  S.inventory.push({
+    id: String(newId),
+    brand,
+    family:          document.getElementById('af-family').value,
+    type:            document.getElementById('af-type').value.trim(),
+    colour,
+    hex:             document.getElementById('af-hex').value,
+    spool_weight_g:  document.getElementById('af-weight').value||'1000',
+    qty_on_hand:     String(qty),
+    low_stock_threshold: document.getElementById('af-threshold').value||'1',
+    on_shopping_list: 'false',
+    notes:           document.getElementById('af-notes').value.trim(),
+  });
+
+  const supplier = document.getElementById('af-supplier').value.trim();
+  const order    = document.getElementById('af-order').value.trim();
+  const style    = document.getElementById('af-style').value;
+  for (let i = 0; i < qty; i++) {
+    S.purchases.push({
+      id: String(nextId(S.purchases)),
+      inventory_id: String(newId),
+      purchase_date: todayStr(),
+      qty_purchased: '1',
+      order_id: order,
+      supplier,
+      style,
+      notes: '',
+    });
+  }
+
+  recalcAll(); renderAll();
+  toggleAddForm();
+  notify(`Added ${colour} (${brand}) to inventory.`, 'success');
+}
+
+// ═══════════════════════════════════════
+//  EDIT FORM
+// ═══════════════════════════════════════
+function openEditForm(id) {
+  const item = S.inventory.find(i => String(i.id) === String(id));
+  if (!item) return;
+  S.editingId = id;
+  document.getElementById('ef-brand').value    = item.brand||'';
+  document.getElementById('ef-family').value   = item.family||'PLA';
+  document.getElementById('ef-type').value     = item.type||'';
+  document.getElementById('ef-colour').value   = item.colour||'';
+  document.getElementById('ef-hex').value      = item.hex||'#888888';
+  document.getElementById('ef-weight').value   = item.spool_weight_g||'1000';
+  document.getElementById('ef-threshold').value = item.low_stock_threshold||'1';
+  document.getElementById('ef-notes').value    = item.notes||'';
+  document.getElementById('editFormPanel').classList.add('show');
+  document.getElementById('addFormPanel').classList.remove('show');
+  document.getElementById('purchaseFormPanel').classList.remove('show');
+  S.addOpen = false; S.purchaseId = null;
+  document.getElementById('btnAdd').style.display = '';
+  document.getElementById('editFormPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function saveEdit() {
+  const item = S.inventory.find(i => String(i.id) === String(S.editingId));
+  if (!item) return;
+  item.brand               = document.getElementById('ef-brand').value.trim();
+  item.family              = document.getElementById('ef-family').value;
+  item.type                = document.getElementById('ef-type').value.trim();
+  item.colour              = document.getElementById('ef-colour').value.trim();
+  item.hex                 = document.getElementById('ef-hex').value;
+  item.spool_weight_g      = document.getElementById('ef-weight').value;
+  item.low_stock_threshold = document.getElementById('ef-threshold').value;
+  item.notes               = document.getElementById('ef-notes').value.trim();
+  renderAll(); closeEditForm();
+  notify(`Updated ${item.colour}.`, 'success');
+}
+
+function closeEditForm() {
+  S.editingId = null;
+  document.getElementById('editFormPanel').classList.remove('show');
+}
+
+// ═══════════════════════════════════════
+//  PURCHASE FORM
+// ═══════════════════════════════════════
+function openPurchaseForm(id) {
+  const item = S.inventory.find(i => String(i.id) === String(id));
+  if (!item) return;
+  S.purchaseId = id;
+  document.getElementById('pf-id').value      = id;
+  document.getElementById('pf-name').value    = `${item.colour} (${item.brand})`;
+  document.getElementById('pf-date').value    = todayStr();
+  document.getElementById('pf-qty').value     = '1';
+  document.getElementById('pf-order').value   = '';
+  document.getElementById('pf-supplier').value = '';
+  document.getElementById('pf-notes').value   = '';
+  document.getElementById('purchaseFormPanel').classList.add('show');
+  document.getElementById('addFormPanel').classList.remove('show');
+  document.getElementById('editFormPanel').classList.remove('show');
+  S.addOpen = false; S.editingId = null;
+  document.getElementById('btnAdd').style.display = '';
+  document.getElementById('purchaseFormPanel').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function savePurchase() {
+  const id = document.getElementById('pf-id').value;
+  const item = S.inventory.find(i => String(i.id) === String(id));
+  if (!item) return;
+  const qty = Math.max(1, parseInt(document.getElementById('pf-qty').value)||1);
+  for (let i = 0; i < qty; i++) {
+    S.purchases.push({
+      id: String(nextId(S.purchases)),
+      inventory_id: String(id),
+      purchase_date: document.getElementById('pf-date').value,
+      qty_purchased: '1',
+      order_id:  document.getElementById('pf-order').value.trim(),
+      supplier:  document.getElementById('pf-supplier').value.trim(),
+      style:     document.getElementById('pf-style').value,
+      notes:     document.getElementById('pf-notes').value.trim(),
+    });
+  }
+  recalcAll(); renderAll();
+  closePurchaseForm();
+  notify(`Logged ${qty} spool${qty!==1?'s':''} of ${item.colour}.`, 'success');
+}
+
+function closePurchaseForm() {
+  S.purchaseId = null;
+  document.getElementById('purchaseFormPanel').classList.remove('show');
+}
+
+function closeAllForms() {
+  closeEditForm(); closePurchaseForm();
+  if (S.addOpen) toggleAddForm();
+}
+
+// ═══════════════════════════════════════
+//  STOCKTAKE
+// ═══════════════════════════════════════
+function confirmStocktake() {
+  const entries = [];
+  S.inventory.forEach(item => {
+    const inp = document.getElementById(`st-${item.id}`);
+    if (!inp || inp.value.trim() === '') return;
+    const count = parseInt(inp.value);
+    if (isNaN(count)) return;
+    if (count !== parseInt(inp.dataset.calc||'0')) {
+      entries.push({
+        id: String(nextId([...S.stocktakes, ...entries])),
+        inventory_id: String(item.id),
+        stocktake_date: todayStr(),
+        qty_counted: String(count),
+        notes: '',
+      });
+    }
+  });
+  if (!entries.length) { notify('No changes — all counts match calculated values.', 'info'); return; }
+  S.stocktakes.push(...entries);
+  recalcAll(); renderAll();
+  notify(`Stocktake recorded: ${entries.length} item${entries.length!==1?'s':''} updated.`, 'success');
+}
+
+function importStocktakesFile(inp) {
+  const file = inp.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = e => {
+    S.stocktakes = Papa.parse(e.target.result, {header:true,skipEmptyLines:true}).data;
+    recalcAll(); renderAll();
+    notify('Stocktakes CSV imported.', 'success');
+  };
+  rd.readAsText(file);
+}
+
+// ═══════════════════════════════════════
+//  CSV / EXPORT / IMPORT
+// ═══════════════════════════════════════
+function toCSV(rows) {
+  if (!rows.length) return '';
+  const headers = Object.keys(rows[0]);
+  const lines = [headers.join(',')];
+  rows.forEach(row => {
+    lines.push(headers.map(h => {
+      const v = String(row[h]??'');
+      return (v.includes(',')||v.includes('"')||v.includes('\n')) ? `"${v.replace(/"/g,'""')}"` : v;
+    }).join(','));
+  });
+  return lines.join('\n');
+}
+
+function headerOnlyCSV(fields) { return fields.join(',') + '\n'; }
+
+function dlCSV(type) {
+  let data, name;
+  if (type==='inventory') { data = toCSV(S.inventory); name = 'inventory.csv'; }
+  else if (type==='purchases') { data = toCSV(S.purchases); name = 'purchases.csv'; }
+  else {
+    data = S.stocktakes.length ? toCSV(S.stocktakes) : headerOnlyCSV(['id','inventory_id','stocktake_date','qty_counted','notes']);
+    name = 'stocktakes.csv';
+  }
+  triggerDL(new Blob([data],{type:'text/csv'}), name);
+}
+
+async function exportAllZip() {
+  const zip = new JSZip();
+  zip.file('inventory.csv', toCSV(S.inventory));
+  zip.file('purchases.csv', toCSV(S.purchases));
+  zip.file('stocktakes.csv', S.stocktakes.length ? toCSV(S.stocktakes) : headerOnlyCSV(['id','inventory_id','stocktake_date','qty_counted','notes']));
+  const blob = await zip.generateAsync({type:'blob'});
+  triggerDL(blob, 'spool-tracker-data.zip');
+}
+
+function triggerDL(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function importCSV(type, inp) {
+  const file = inp.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = e => {
+    const rows = Papa.parse(e.target.result, {header:true,skipEmptyLines:true}).data;
+    if (type==='inventory') S.inventory = rows;
+    else if (type==='purchases') S.purchases = rows;
+    else S.stocktakes = rows;
+    recalcAll(); renderAll();
+    notify(`${file.name} imported (${rows.length} rows).`, 'success');
+  };
+  rd.readAsText(file);
+}
+
+// ═══════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════
+loadData();
+</script>
+</body>
+</html>
