@@ -485,9 +485,128 @@
     /* ── TAB CONTENT ── */
     .tab-content { display: none; }
     .tab-content.active { display: block; }
+  /* ── SETUP SCREEN ── */
+  .setup-screen {
+    min-height: 100vh; display: flex;
+    align-items: center; justify-content: center;
+    padding: 24px;
+    background: var(--color-background-tertiary);
+  }
+  .setup-wrap { width: 100%; max-width: 440px; }
+  .setup-logo {
+    display: flex; align-items: center; justify-content: center;
+    gap: 10px; font-size: 22px; font-weight: 700;
+    color: var(--color-text-primary); margin-bottom: 6px;
+  }
+  .setup-tagline {
+    text-align: center; color: var(--color-text-secondary);
+    font-size: 13px; margin-bottom: 24px;
+  }
+  .setup-card {
+    background: var(--color-background-primary);
+    border: 1px solid var(--color-border-tertiary);
+    border-radius: 12px; padding: 22px; margin-bottom: 12px;
+  }
+  .setup-card h2 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .setup-card p { font-size: 13px; color: var(--color-text-secondary); margin-bottom: 16px; }
+  .setup-error {
+    background: var(--color-background-danger); color: var(--color-text-danger);
+    padding: 9px 12px; border-radius: 7px; font-size: 13px;
+    margin-bottom: 14px; display: none;
+  }
+  .setup-error.show { display: block; }
+  .setup-hint { font-size: 11px; color: var(--color-text-secondary); margin-top: 3px; line-height: 1.4; }
+  .setup-connect-btn {
+    width: 100%; background: var(--accent); color: #fff; border: none;
+    padding: 11px; border-radius: 8px; font-family: inherit;
+    font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 16px;
+  }
+  .setup-connect-btn:hover { opacity: 0.88; }
+  .setup-connect-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .setup-help {
+    background: var(--color-background-primary);
+    border: 1px solid var(--color-border-tertiary);
+    border-radius: 10px; padding: 12px 16px;
+  }
+  .setup-help summary {
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    color: var(--color-text-secondary); user-select: none;
+  }
+  .setup-steps { margin-top: 10px; padding-left: 0; list-style: none; }
+  .setup-steps li { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 6px; padding-left: 16px; position: relative; }
+  .setup-steps li::before { content: counter(step); counter-increment: step; position: absolute; left: 0; font-weight: 700; color: var(--accent); }
+  .setup-steps { counter-reset: step; }
+  .setup-steps b { color: var(--color-text-primary); }
+  .setup-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--color-text-secondary); margin: 12px 0 6px; }
+  .btn-save {
+    background: var(--accent); color: #fff; border: none;
+    padding: 7px 14px; border-radius: 8px; font-family: inherit;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; gap: 5px;
+  }
+  .btn-save:hover { opacity: 0.88; }
+  .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
   </style>
 </head>
 <body>
+
+<!-- SETUP SCREEN -->
+<div id="setupScreen" class="setup-screen">
+  <div class="setup-wrap">
+    <div class="setup-logo">
+      <svg width="28" height="28" viewBox="0 0 44 44" fill="none">
+        <circle cx="22" cy="22" r="17" stroke="currentColor" stroke-width="2.5" opacity="0.7"/>
+        <circle cx="22" cy="22" r="6.5" fill="currentColor" opacity="0.7"/>
+        <circle cx="22" cy="22" r="2.6" fill="var(--color-background-tertiary)"/>
+      </svg>
+      Spool Tracker
+    </div>
+    <p class="setup-tagline">Connect your private data store to get started</p>
+
+    <div class="setup-card">
+      <h2>Connect to GitHub Gist</h2>
+      <p>Your filament data is stored privately in a GitHub Gist — only you can see it.</p>
+      <div id="setupError" class="setup-error"></div>
+      <div class="form-group">
+        <label>Personal Access Token</label>
+        <input type="password" id="s-token" placeholder="ghp_…" autocomplete="off">
+        <div class="setup-hint">GitHub → Settings → Developer settings → Personal access tokens (classic) → tick <b>gist</b></div>
+      </div>
+      <div style="margin-top:10px" class="form-group">
+        <label>Gist ID</label>
+        <input type="text" id="s-gist" placeholder="abc1234def5678…" autocomplete="off">
+        <div class="setup-hint">The long code at the end of your Gist URL: gist.github.com/username/<b>→ this part ←</b></div>
+      </div>
+      <button class="setup-connect-btn" id="connectBtn" onclick="connectGist()">Connect</button>
+    </div>
+
+    <details class="setup-help">
+      <summary>Step-by-step: how to create a Gist and token</summary>
+      <div class="setup-section-label">Create a secret Gist</div>
+      <ol class="setup-steps">
+        <li>Go to <b>gist.github.com</b> (logged into GitHub)</li>
+        <li>In "Gist description" type: <b>Spool Tracker data</b></li>
+        <li>In "Filename…" type <b>inventory.csv</b> — leave content blank</li>
+        <li>Click <b>+ Add file</b> → type <b>purchases.csv</b></li>
+        <li>Click <b>+ Add file</b> → type <b>stocktakes.csv</b></li>
+        <li>Click the <b>dropdown arrow</b> on the green button → <b>Create secret gist</b></li>
+        <li>Copy the long code from the URL after your username — that's your Gist ID</li>
+      </ol>
+      <div class="setup-section-label">Create a token</div>
+      <ol class="setup-steps">
+        <li>Profile photo → <b>Settings</b> → scroll to bottom → <b>Developer settings</b></li>
+        <li><b>Personal access tokens</b> → <b>Tokens (classic)</b></li>
+        <li><b>Generate new token (classic)</b> → name it anything</li>
+        <li>Tick the <b>gist</b> checkbox only</li>
+        <li>Click <b>Generate token</b> → copy it (starts with <b>ghp_</b>)</li>
+        <li><b>Save it somewhere safe</b> — you can only see it once</li>
+      </ol>
+    </details>
+  </div>
+</div>
+
+<!-- APP (hidden until connected) -->
+<div id="appContent" style="display:none">
 
 <!-- HEADER -->
 <header class="app-header">
@@ -501,6 +620,9 @@
   </div>
   <div class="header-right">
     <span class="low-stock-badge" id="lowStockBadge"></span>
+    <button class="btn-save" id="btnSave" onclick="saveToGist()">
+      <i class="ti ti-device-floppy"></i> Save
+    </button>
     <button class="btn-header-sm" onclick="exportAllZip()" title="Export all CSVs as ZIP">
       <i class="ti ti-download"></i> Export
     </button>
@@ -727,6 +849,7 @@
   </div>
 
 </div>
+</div><!-- #appContent -->
 
 <script>
 // ═══════════════════════════════════════
@@ -746,6 +869,118 @@ const S = {
 };
 
 // ═══════════════════════════════════════
+//  GIST CREDENTIALS
+// ═══════════════════════════════════════
+const STORE_TOKEN = 'st_token';
+const STORE_GIST  = 'st_gist';
+
+function showSetup(error) {
+  document.getElementById('setupScreen').style.display = 'flex';
+  document.getElementById('appContent').style.display  = 'none';
+  if (error) { const el = document.getElementById('setupError'); el.textContent = error; el.classList.add('show'); }
+}
+function hideSetup() {
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('appContent').style.display  = 'block';
+}
+function clearSetupError() { document.getElementById('setupError').classList.remove('show'); }
+
+function parseGistFile(file) {
+  if (!file || !file.content || !file.content.trim()) return [];
+  return Papa.parse(file.content.trim(), { header: true, skipEmptyLines: true }).data;
+}
+
+async function connectGist() {
+  const token  = document.getElementById('s-token').value.trim();
+  const gistId = document.getElementById('s-gist').value.trim();
+  if (!token || !gistId) { document.getElementById('setupError').textContent = 'Please fill in both fields.'; document.getElementById('setupError').classList.add('show'); return; }
+  clearSetupError();
+  const btn = document.getElementById('connectBtn');
+  btn.disabled = true; btn.textContent = 'Connecting…';
+
+  try {
+    const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (resp.status === 401) throw new Error('Token is invalid or expired — check it was copied in full.');
+    if (resp.status === 404) throw new Error('Gist not found — check the ID was copied correctly.');
+    if (!resp.ok) throw new Error(`GitHub error: ${resp.status}`);
+
+    const gist = await resp.json();
+    S.inventory  = parseGistFile(gist.files['inventory.csv']);
+    S.purchases  = parseGistFile(gist.files['purchases.csv']);
+    S.stocktakes = parseGistFile(gist.files['stocktakes.csv']);
+
+    // If Gist is empty, migrate existing data from the repo
+    if (!S.inventory.length) {
+      btn.textContent = 'Migrating data…';
+      const [inv, pur, stk] = await Promise.all([
+        fetchCSV('./inventory.csv'),
+        fetchCSV('./purchases.csv'),
+        fetchCSV('./stocktakes.csv'),
+      ]);
+      if (inv.length) { S.inventory = inv; S.purchases = pur; S.stocktakes = stk; }
+      localStorage.setItem(STORE_TOKEN, token);
+      localStorage.setItem(STORE_GIST,  gistId);
+      await _pushToGist(token, gistId);
+    } else {
+      localStorage.setItem(STORE_TOKEN, token);
+      localStorage.setItem(STORE_GIST,  gistId);
+    }
+
+    recalcAll(); hideSetup(); renderAll();
+    notify(inv_was_empty(gist) ? 'Connected — existing data migrated to your private Gist!' : 'Connected!', 'success', null, 4000);
+  } catch (e) {
+    document.getElementById('setupError').textContent = e.message;
+    document.getElementById('setupError').classList.add('show');
+    btn.disabled = false; btn.textContent = 'Connect';
+  }
+}
+
+function inv_was_empty(gist) {
+  const f = gist.files['inventory.csv'];
+  return !f || !f.content || !f.content.trim();
+}
+
+async function saveToGist() {
+  const token  = localStorage.getItem(STORE_TOKEN);
+  const gistId = localStorage.getItem(STORE_GIST);
+  if (!token || !gistId) { notify('Not connected to Gist.', 'error'); return; }
+  const btn = document.getElementById('btnSave');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="ti ti-loader"></i> Saving…'; }
+  try {
+    await _pushToGist(token, gistId);
+    notify('Saved ✓', 'success');
+  } catch (e) {
+    notify(`Save failed: ${e.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="ti ti-device-floppy"></i> Save'; }
+  }
+}
+
+async function _pushToGist(token, gistId) {
+  const INV_H = 'id,brand,family,type,colour,hex,spool_weight_g,qty_on_hand,low_stock_threshold,on_shopping_list,notes\n';
+  const PUR_H = 'id,inventory_id,purchase_date,qty_purchased,order_id,supplier,style,notes\n';
+  const STK_H = 'id,inventory_id,stocktake_date,qty_counted,notes\n';
+  const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ files: {
+      'inventory.csv':  { content: S.inventory.length  ? toCSV(S.inventory)  : INV_H },
+      'purchases.csv':  { content: S.purchases.length  ? toCSV(S.purchases)  : PUR_H },
+      'stocktakes.csv': { content: S.stocktakes.length ? toCSV(S.stocktakes) : STK_H },
+    }})
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+}
+
+function disconnect() {
+  localStorage.removeItem(STORE_TOKEN);
+  localStorage.removeItem(STORE_GIST);
+  location.reload();
+}
+
+// ═══════════════════════════════════════
 //  LOAD
 // ═══════════════════════════════════════
 async function fetchCSV(path) {
@@ -758,16 +993,27 @@ async function fetchCSV(path) {
 }
 
 async function loadData() {
-  const [inv, pur, stk] = await Promise.all([
-    fetchCSV('./inventory.csv'),
-    fetchCSV('./purchases.csv'),
-    fetchCSV('./stocktakes.csv'),
-  ]);
-  S.inventory = inv;
-  S.purchases = pur;
-  S.stocktakes = stk;
-  recalcAll();
-  renderAll();
+  const token  = localStorage.getItem(STORE_TOKEN);
+  const gistId = localStorage.getItem(STORE_GIST);
+  if (!token || !gistId) { showSetup(); return; }
+  try {
+    const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (resp.status === 401 || resp.status === 404) {
+      localStorage.removeItem(STORE_TOKEN); localStorage.removeItem(STORE_GIST);
+      showSetup('Your saved credentials are no longer valid. Please reconnect.');
+      return;
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const gist = await resp.json();
+    S.inventory  = parseGistFile(gist.files['inventory.csv']);
+    S.purchases  = parseGistFile(gist.files['purchases.csv']);
+    S.stocktakes = parseGistFile(gist.files['stocktakes.csv']);
+    recalcAll(); hideSetup(); renderAll();
+  } catch (e) {
+    showSetup(`Couldn't load data: ${e.message}`);
+  }
 }
 
 // ═══════════════════════════════════════
@@ -1034,6 +1280,10 @@ function renderStocktake() {
     <button class="btn-sm" onclick="dlCSV('purchases')">purchases.csv</button>
     <button class="btn-sm" onclick="dlCSV('stocktakes')">stocktakes.csv</button>
     <button class="btn-primary" onclick="exportAllZip()"><i class="ti ti-archive"></i> Download all (ZIP)</button>
+  </div>
+  <div class="data-panel">
+    <span class="data-panel-label"><i class="ti ti-plug-connected"></i> Gist connection</span>
+    <button class="btn-sm" onclick="if(confirm('Disconnect and return to setup screen?')) disconnect()"><i class="ti ti-plug-x"></i> Disconnect</button>
   </div>
   <div class="data-panel">
     <span class="data-panel-label"><i class="ti ti-upload"></i> Import CSV</span>
