@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spool Tracker</title>
+  <title>Filament Tracker</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
@@ -573,7 +573,7 @@
         <circle cx="22" cy="22" r="6.5" fill="currentColor" opacity="0.7"/>
         <circle cx="22" cy="22" r="2.6" fill="var(--color-background-tertiary)"/>
       </svg>
-      Spool Tracker
+      Filament Tracker
     </div>
     <p class="setup-tagline">Connect your private data store to get started</p>
 
@@ -599,7 +599,7 @@
       <div class="setup-section-label">Create a secret Gist</div>
       <ol class="setup-steps">
         <li>Go to <b>gist.github.com</b> (logged into GitHub)</li>
-        <li>In "Gist description" type: <b>Spool Tracker data</b></li>
+        <li>In "Gist description" type: <b>Filament Tracker data</b></li>
         <li>In "Filename…" type <b>inventory.csv</b> — leave content blank</li>
         <li>Click <b>+ Add file</b> → type <b>purchases.csv</b></li>
         <li>Click <b>+ Add file</b> → type <b>stocktakes.csv</b></li>
@@ -630,7 +630,7 @@
       <circle cx="22" cy="22" r="6.5" fill="#fff" opacity="0.8"/>
       <circle cx="22" cy="22" r="2.6" fill="#1C1C2E"/>
     </svg>
-    <span class="app-logo-text">Spool Tracker</span>
+    <span class="app-logo-text">Filament Tracker</span>
   </div>
   <div class="header-right">
     <span class="low-stock-badge" id="lowStockBadge"></span>
@@ -1753,7 +1753,7 @@ async function exportAllZip() {
   zip.file('purchases.csv', toCSV(S.purchases));
   zip.file('stocktakes.csv', S.stocktakes.length ? toCSV(S.stocktakes) : headerOnlyCSV(['id','inventory_id','stocktake_date','qty_counted','notes']));
   const blob = await zip.generateAsync({type:'blob'});
-  triggerDL(blob, 'spool-tracker-data.zip');
+  triggerDL(blob, 'filament-tracker-data.zip');
 }
 
 function triggerDL(blob, name) {
