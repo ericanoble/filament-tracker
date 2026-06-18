@@ -683,12 +683,22 @@
       <input type="color" id="af-hex" value="#FF0000" style="height:36px;padding:2px 4px;cursor:pointer">
     </div>
     <div class="form-group">
-      <label>Spool Weight (g)</label>
-      <input type="number" id="af-weight" value="1000">
+      <label>Spool Weight</label>
+      <select id="af-weight" onchange="toggleCustomWeight('af')">
+        <option value="250">250g</option>
+        <option value="500">500g</option>
+        <option value="750">750g</option>
+        <option value="1000" selected>1,000g (1kg)</option>
+        <option value="2000">2,000g (2kg)</option>
+        <option value="3000">3,000g (3kg)</option>
+        <option value="5000">5,000g (5kg)</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <input type="number" id="af-weight-custom" placeholder="grams" min="1" style="display:none;margin-top:6px">
     </div>
     <div class="form-group">
-      <label>Low Stock Threshold</label>
-      <input type="number" id="af-threshold" value="1" min="0">
+      <label>Low Stock Threshold (g)</label>
+      <input type="number" id="af-threshold" value="500" min="0">
     </div>
     <div class="form-group">
       <label>Initial Qty (spools)</label>
@@ -748,11 +758,21 @@
       <input type="color" id="ef-hex" style="height:36px;padding:2px 4px;cursor:pointer">
     </div>
     <div class="form-group">
-      <label>Spool Weight (g)</label>
-      <input type="number" id="ef-weight">
+      <label>Spool Weight</label>
+      <select id="ef-weight" onchange="toggleCustomWeight('ef')">
+        <option value="250">250g</option>
+        <option value="500">500g</option>
+        <option value="750">750g</option>
+        <option value="1000">1,000g (1kg)</option>
+        <option value="2000">2,000g (2kg)</option>
+        <option value="3000">3,000g (3kg)</option>
+        <option value="5000">5,000g (5kg)</option>
+        <option value="custom">Custom…</option>
+      </select>
+      <input type="number" id="ef-weight-custom" placeholder="grams" min="1" style="display:none;margin-top:6px">
     </div>
     <div class="form-group">
-      <label>Low Stock Threshold</label>
+      <label>Low Stock Threshold (g)</label>
       <input type="number" id="ef-threshold" min="0">
     </div>
     <div class="form-group full">
@@ -972,7 +992,7 @@ async function connectGist() {
       lsSet(STORE_GIST,  gistId);
     }
 
-    recalcAll(); hideSetup(); renderAll();
+    migrateThresholds(); recalcAll(); hideSetup(); renderAll();
     notify(inv_was_empty(gist) ? 'Connected — existing data migrated to your private Gist!' : 'Connected!', 'success', null, 4000);
   } catch (e) {
     document.getElementById('setupError').textContent = e.message;
@@ -1059,7 +1079,7 @@ async function loadData() {
     S.inventory  = parseGistFile(gist.files['inventory.csv']);
     S.purchases  = parseGistFile(gist.files['purchases.csv']);
     S.stocktakes = parseGistFile(gist.files['stocktakes.csv']);
-    recalcAll(); hideSetup(); renderAll();
+    migrateThresholds(); recalcAll(); hideSetup(); renderAll();
   } catch (e) {
     showSetup(`Couldn't load data: ${e.message}`);
   }
@@ -1070,6 +1090,9 @@ async function loadData() {
 // ═══════════════════════════════════════
 function calcQty(invId) {
   const id = String(invId);
+  const inv = S.inventory.find(i => String(i.id) === id);
+  const weight = parseFloat(inv?.spool_weight_g) || 1000;
+
   const sorted = S.stocktakes
     .filter(s => String(s.inventory_id) === id)
     .sort((a, b) => new Date(b.stocktake_date) - new Date(a.stocktake_date));
@@ -1084,7 +1107,7 @@ function calcQty(invId) {
     .filter(p => String(p.inventory_id) === id && new Date(p.purchase_date) > baseDate)
     .reduce((sum, p) => sum + (parseInt(p.qty_purchased) || 0), 0);
 
-  return Math.max(0, base + net);
+  return Math.max(0, (base + net) * weight);
 }
 
 function recalcAll() {
@@ -1094,9 +1117,61 @@ function recalcAll() {
 // ═══════════════════════════════════════
 //  UTILS
 // ═══════════════════════════════════════
+const SPOOL_SIZES = ['250','500','750','1000','2000','3000','5000'];
+
+function toggleCustomWeight(prefix) {
+  const sel = document.getElementById(prefix + '-weight');
+  const custom = document.getElementById(prefix + '-weight-custom');
+  if (!sel || !custom) return;
+  custom.style.display = sel.value === 'custom' ? '' : 'none';
+  if (sel.value === 'custom') custom.focus();
+}
+
+function getWeightValue(prefix) {
+  const sel = document.getElementById(prefix + '-weight');
+  if (!sel) return '1000';
+  if (sel.value === 'custom') {
+    return document.getElementById(prefix + '-weight-custom').value || '1000';
+  }
+  return sel.value;
+}
+
+function setWeightDropdown(prefix, value) {
+  const sel = document.getElementById(prefix + '-weight');
+  const custom = document.getElementById(prefix + '-weight-custom');
+  if (!sel) return;
+  if (SPOOL_SIZES.includes(String(value))) {
+    sel.value = String(value);
+    if (custom) custom.style.display = 'none';
+  } else {
+    sel.value = 'custom';
+    if (custom) { custom.style.display = ''; custom.value = value; }
+  }
+}
+
+function migrateThresholds() {
+  S.inventory.forEach(item => {
+    const t = parseFloat(item.low_stock_threshold);
+    if (!isNaN(t) && t < 100) {
+      const w = parseFloat(item.spool_weight_g) || 1000;
+      item.low_stock_threshold = String(Math.round(t * w));
+    }
+  });
+}
+
+function fmtGrams(g) {
+  g = parseInt(g) || 0;
+  if (g === 0) return '0g';
+  if (g >= 1000) {
+    const kg = g / 1000;
+    return (Number.isInteger(kg) ? kg : kg.toFixed(1)) + 'kg';
+  }
+  return g + 'g';
+}
+
 function status(item) {
   const qty = parseInt(item.qty_on_hand) || 0;
-  const thr = parseInt(item.low_stock_threshold) || 1;
+  const thr = parseInt(item.low_stock_threshold) || 500;
   if (qty === 0) return 'critical';
   if (qty <= thr) return 'low';
   return 'good';
@@ -1175,11 +1250,12 @@ function renderInventory() {
 
 function renderCard(item) {
   const qty = parseInt(item.qty_on_hand) || 0;
+  const weight = parseFloat(item.spool_weight_g) || 1000;
   const st = status(item);
   const hex = item.hex || '#888888';
   const light = isLight(hex);
   const listed = onList(item);
-  const barPct = Math.min(100, (qty / 6) * 100);
+  const barPct = Math.min(100, (qty / (5 * weight)) * 100);
   const barColor = st === 'critical' ? 'var(--color-text-danger)'
     : st === 'low' ? 'var(--color-text-warning)'
     : 'var(--color-text-info)';
@@ -1194,8 +1270,7 @@ function renderCard(item) {
       <div class="card-colour">${esc(item.colour)}</div>
       <div class="card-type">${esc(item.family)} · ${esc(item.type)}</div>
       <div class="card-qty-row">
-        <span class="card-qty">${qty}</span>
-        <span class="card-qty-unit">spool${qty !== 1 ? 's' : ''}</span>
+        <span class="card-qty">${fmtGrams(qty)}</span>
       </div>
       <div class="qty-bar-wrap"><div class="qty-bar-fill" style="width:${barPct}%;background:${barColor}"></div></div>
       <div class="card-footer">
@@ -1250,7 +1325,7 @@ function shoppingRow(item, showRemove) {
     <div class="colour-dot" style="background:${esc(item.hex)}"></div>
     <div class="si-info">
       <div class="si-name">${esc(item.colour)}</div>
-      <div class="si-meta">${esc(item.brand)} · ${esc(item.type)} · ${qty} on hand</div>
+      <div class="si-meta">${esc(item.brand)} · ${esc(item.type)} · ${fmtGrams(qty)} on hand</div>
     </div>
     <span class="status-badge ${st}">${st}</span>
     ${showRemove ? `<button class="icon-btn" title="Remove from list" onclick="toggleList(${item.id})"><i class="ti ti-x"></i></button>` : ''}
@@ -1410,7 +1485,7 @@ function copyList() {
   const manual  = S.inventory.filter(i => onList(i));
   const lines = ['Filament shopping list', ...([...flagged,...manual].map(i => {
     const qty = parseInt(i.qty_on_hand)||0;
-    return `• ${i.brand} ${i.type} – ${i.colour} — ${qty} on hand (${status(i)})`;
+    return `• ${i.brand} ${i.type} – ${i.colour} — ${fmtGrams(qty)} on hand (${status(i)})`;
   }))];
   navigator.clipboard.writeText(lines.join('\n'))
     .then(() => notify('Shopping list copied to clipboard!', 'success'))
@@ -1424,10 +1499,11 @@ function confirmUsed(id) {
   const item = S.inventory.find(i => String(i.id) === String(id));
   if (!item) return;
   const qty = parseInt(item.qty_on_hand)||0;
-  if (qty === 0) { notify('No spools remaining to mark as used.', 'error'); return; }
+  const weight = parseFloat(item.spool_weight_g) || 1000;
+  if (qty <= 0) { notify('No filament remaining to mark as used.', 'error'); return; }
   S.pendingUsedId = id;
   notify(
-    `Mark 1 spool of ${item.colour} as used? (qty will drop from ${qty} to ${qty-1})`,
+    `Mark 1 spool (${fmtGrams(weight)}) of ${item.colour} as used? (${fmtGrams(qty)} → ${fmtGrams(qty - weight)})`,
     'confirm',
     `<button class="btn-confirm" onclick="markUsed()">Confirm</button>
      <button class="btn-cancel" onclick="dismissNotif()">Cancel</button>`,
@@ -1481,9 +1557,9 @@ function saveNewFilament() {
     type:            document.getElementById('af-type').value.trim(),
     colour,
     hex:             document.getElementById('af-hex').value,
-    spool_weight_g:  document.getElementById('af-weight').value||'1000',
+    spool_weight_g:  getWeightValue('af'),
     qty_on_hand:     String(qty),
-    low_stock_threshold: document.getElementById('af-threshold').value||'1',
+    low_stock_threshold: document.getElementById('af-threshold').value||'500',
     on_shopping_list: 'false',
     notes:           document.getElementById('af-notes').value.trim(),
   });
@@ -1521,8 +1597,8 @@ function openEditForm(id) {
   document.getElementById('ef-type').value     = item.type||'';
   document.getElementById('ef-colour').value   = item.colour||'';
   document.getElementById('ef-hex').value      = item.hex||'#888888';
-  document.getElementById('ef-weight').value   = item.spool_weight_g||'1000';
-  document.getElementById('ef-threshold').value = item.low_stock_threshold||'1';
+  setWeightDropdown('ef', item.spool_weight_g||'1000');
+  document.getElementById('ef-threshold').value = item.low_stock_threshold||'500';
   document.getElementById('ef-notes').value    = item.notes||'';
   document.getElementById('editFormPanel').classList.add('show');
   document.getElementById('addFormPanel').classList.remove('show');
@@ -1540,7 +1616,7 @@ function saveEdit() {
   item.type                = document.getElementById('ef-type').value.trim();
   item.colour              = document.getElementById('ef-colour').value.trim();
   item.hex                 = document.getElementById('ef-hex').value;
-  item.spool_weight_g      = document.getElementById('ef-weight').value;
+  item.spool_weight_g      = getWeightValue('ef');
   item.low_stock_threshold = document.getElementById('ef-threshold').value;
   item.notes               = document.getElementById('ef-notes').value.trim();
   setDirty(true); renderAll(); closeEditForm();
