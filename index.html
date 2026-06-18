@@ -1153,8 +1153,7 @@ function migrateThresholds() {
   S.inventory.forEach(item => {
     const t = parseFloat(item.low_stock_threshold);
     if (!isNaN(t) && t < 100) {
-      const w = parseFloat(item.spool_weight_g) || 1000;
-      item.low_stock_threshold = String(Math.round(t * w));
+      item.low_stock_threshold = '500';
     }
   });
 }
