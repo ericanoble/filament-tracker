@@ -661,7 +661,15 @@
   <div class="form-grid">
     <div class="form-group">
       <label>Brand *</label>
-      <input type="text" id="af-brand" placeholder="e.g. eSUN">
+      <select id="af-brand" onchange="toggleCustomBrand('af')">
+        <option value="eSUN">eSUN</option>
+        <option value="Bambu">Bambu</option>
+        <option value="Polymaker">Polymaker</option>
+        <option value="Sunlu">Sunlu</option>
+        <option value="Creality">Creality</option>
+        <option value="other">Other…</option>
+      </select>
+      <input type="text" id="af-brand-custom" placeholder="Enter brand name" style="display:none;margin-top:6px">
     </div>
     <div class="form-group">
       <label>Family</label>
@@ -736,7 +744,15 @@
   <div class="form-grid">
     <div class="form-group">
       <label>Brand</label>
-      <input type="text" id="ef-brand">
+      <select id="ef-brand" onchange="toggleCustomBrand('ef')">
+        <option value="eSUN">eSUN</option>
+        <option value="Bambu">Bambu</option>
+        <option value="Polymaker">Polymaker</option>
+        <option value="Sunlu">Sunlu</option>
+        <option value="Creality">Creality</option>
+        <option value="other">Other…</option>
+      </select>
+      <input type="text" id="ef-brand-custom" placeholder="Enter brand name" style="display:none;margin-top:6px">
     </div>
     <div class="form-group">
       <label>Family</label>
@@ -1117,7 +1133,38 @@ function recalcAll() {
 // ═══════════════════════════════════════
 //  UTILS
 // ═══════════════════════════════════════
+const BRANDS = ['eSUN','Bambu','Polymaker','Sunlu','Creality'];
 const SPOOL_SIZES = ['250','500','750','1000','2000','3000','5000'];
+
+function toggleCustomBrand(prefix) {
+  const sel = document.getElementById(prefix + '-brand');
+  const custom = document.getElementById(prefix + '-brand-custom');
+  if (!sel || !custom) return;
+  custom.style.display = sel.value === 'other' ? '' : 'none';
+  if (sel.value === 'other') custom.focus();
+}
+
+function getBrandValue(prefix) {
+  const sel = document.getElementById(prefix + '-brand');
+  if (!sel) return '';
+  if (sel.value === 'other') {
+    return document.getElementById(prefix + '-brand-custom').value.trim();
+  }
+  return sel.value;
+}
+
+function setBrandDropdown(prefix, value) {
+  const sel = document.getElementById(prefix + '-brand');
+  const custom = document.getElementById(prefix + '-brand-custom');
+  if (!sel) return;
+  if (BRANDS.includes(value)) {
+    sel.value = value;
+    if (custom) custom.style.display = 'none';
+  } else {
+    sel.value = 'other';
+    if (custom) { custom.style.display = ''; custom.value = value; }
+  }
+}
 
 function toggleCustomWeight(prefix) {
   const sel = document.getElementById(prefix + '-weight');
@@ -1542,7 +1589,7 @@ function toggleAddForm() {
 }
 
 function saveNewFilament() {
-  const brand  = document.getElementById('af-brand').value.trim();
+  const brand  = getBrandValue('af');
   const colour = document.getElementById('af-colour').value.trim();
   if (!brand || !colour) { notify('Brand and colour name are required.', 'error'); return; }
 
@@ -1590,7 +1637,7 @@ function openEditForm(id) {
   const item = S.inventory.find(i => String(i.id) === String(id));
   if (!item) return;
   S.editingId = id;
-  document.getElementById('ef-brand').value    = item.brand||'';
+  setBrandDropdown('ef', item.brand||'eSUN');
   document.getElementById('ef-family').value   = item.family||'PLA';
   document.getElementById('ef-type').value     = item.type||'';
   document.getElementById('ef-colour').value   = item.colour||'';
@@ -1609,7 +1656,7 @@ function openEditForm(id) {
 function saveEdit() {
   const item = S.inventory.find(i => String(i.id) === String(S.editingId));
   if (!item) return;
-  item.brand               = document.getElementById('ef-brand').value.trim();
+  item.brand               = getBrandValue('ef');
   item.family              = document.getElementById('ef-family').value;
   item.type                = document.getElementById('ef-type').value.trim();
   item.colour              = document.getElementById('ef-colour').value.trim();
