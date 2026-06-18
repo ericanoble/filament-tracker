@@ -228,26 +228,48 @@
     /* ── FILTER BAR ── */
     .filter-bar {
       display: flex; align-items: center;
-      gap: 8px; margin-bottom: 14px; flex-wrap: wrap;
+      gap: 6px; margin-bottom: 14px; flex-wrap: nowrap;
     }
-    .filter-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+    /* Dropdown chip */
+    .chip-wrap { position: relative; flex-shrink: 0; }
     .chip {
       border: 1px solid var(--color-border-tertiary);
       background: var(--color-background-primary);
       color: var(--color-text-secondary);
-      padding: 7px 14px; border-radius: 20px;
+      padding: 7px 11px; border-radius: 20px;
       font-size: 13px; font-weight: 500;
       cursor: pointer; font-family: inherit;
       display: flex; align-items: center; gap: 4px;
-      transition: all 0.12s;
+      transition: all 0.12s; white-space: nowrap;
+      user-select: none;
     }
-    .chip:hover { border-color: var(--accent); color: var(--accent); }
+    .chip:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
     .chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
-    .search-wrap { position: relative; flex: 1; min-width: 160px; max-width: 280px; }
-    .search-wrap i { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-size: 14px; pointer-events: none; }
+    .chip:disabled { opacity: 0.4; cursor: not-allowed; }
+    .chip-dropdown {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 10px; padding: 4px 0;
+      min-width: 130px; box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+      display: none;
+    }
+    .chip-dropdown.open { display: block; }
+    .chip-option {
+      padding: 8px 14px; font-size: 13px; cursor: pointer;
+      color: var(--color-text-primary); white-space: nowrap;
+      transition: background 0.1s;
+    }
+    .chip-option:hover { background: var(--color-background-secondary); }
+    .chip-option.selected { color: var(--accent); font-weight: 600; }
+    /* Search */
+    .search-wrap { position: relative; flex: 1; min-width: 0; }
+    .search-wrap .search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-size: 14px; pointer-events: none; }
+    .search-wrap .search-clear { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-size: 14px; cursor: pointer; display: none; background: none; border: none; padding: 0; line-height: 1; }
+    .search-wrap .search-clear.visible { display: block; }
     .search-input {
-      width: 100%;
-      padding: 9px 10px 9px 34px;
+      width: 100%; box-sizing: border-box;
+      padding: 7px 30px 7px 30px;
       border: 1px solid var(--color-border-tertiary);
       border-radius: 20px;
       background: var(--color-background-primary);
@@ -255,7 +277,7 @@
       font-family: inherit; font-size: 16px; outline: none;
     }
     .search-input:focus { border-color: var(--accent); }
-    .result-count { font-size: 12px; color: var(--color-text-secondary); margin-left: auto; }
+    .result-count { font-size: 12px; color: var(--color-text-secondary); flex-shrink: 0; }
 
     /* ── CARD GRID ── */
     .card-grid {
@@ -851,19 +873,37 @@
   <!-- INVENTORY -->
   <div class="tab-content active" id="tab-inventory">
     <div class="filter-bar">
-      <div class="filter-chips">
-        <button class="chip active" data-filter="all" onclick="setFilter('all')">All</button>
-        <button class="chip" data-filter="PLA" onclick="setFilter('PLA')">PLA</button>
-        <button class="chip" data-filter="PETG" onclick="setFilter('PETG')">PETG</button>
-        <button class="chip" data-filter="TPU" onclick="setFilter('TPU')">TPU</button>
-        <button class="chip" data-filter="Silk PLA" onclick="setFilter('Silk PLA')">Silk PLA</button>
-        <button class="chip" data-filter="low" onclick="setFilter('low')">
-          <i class="ti ti-alert-triangle" style="font-size:10px"></i> Low stock
+      <!-- Status chip -->
+      <div class="chip-wrap" id="chipWrapStatus">
+        <button class="chip" id="chipStatus" onclick="toggleChipDropdown('status', event)">
+          <span id="chipStatusLabel">All</span> <i class="ti ti-chevron-down" style="font-size:10px"></i>
+        </button>
+        <div class="chip-dropdown" id="dropdownStatus">
+          <div class="chip-option" data-value="all" onclick="selectChip('status','all')">All</div>
+          <div class="chip-option" data-value="low" onclick="selectChip('status','low')">Low stock</div>
+          <div class="chip-option" data-value="critical" onclick="selectChip('status','critical')">Critical</div>
+        </div>
+      </div>
+      <!-- Family chip -->
+      <div class="chip-wrap" id="chipWrapFamily">
+        <button class="chip" id="chipFamily" onclick="toggleChipDropdown('family', event)">
+          <span id="chipFamilyLabel">Family</span> <i class="ti ti-chevron-down" style="font-size:10px"></i>
+        </button>
+        <div class="chip-dropdown" id="dropdownFamily" id="dropdownFamily"></div>
+      </div>
+      <!-- Colour chip (Phase 2 placeholder) -->
+      <div class="chip-wrap">
+        <button class="chip" disabled>
+          <span>Colour</span> <i class="ti ti-chevron-down" style="font-size:10px"></i>
         </button>
       </div>
+      <!-- Search -->
       <div class="search-wrap">
-        <i class="ti ti-search"></i>
-        <input type="text" class="search-input" id="searchInput" placeholder="Search colour, brand, type…" oninput="handleSearch(this.value)">
+        <i class="ti ti-search search-icon"></i>
+        <input type="text" class="search-input" id="searchInput" placeholder="Search…" oninput="handleSearch(this.value)" autocomplete="off">
+        <button class="search-clear" id="searchClear" onclick="clearSearch()" tabindex="-1">
+          <i class="ti ti-x"></i>
+        </button>
       </div>
       <span class="result-count" id="resultCount"></span>
     </div>
@@ -914,7 +954,9 @@ const S = {
   purchases: [],
   stocktakes: [],
   activeTab: 'inventory',
-  filter: 'all',
+  filterStatus: 'all',
+  filterFamily: 'all',
+  filterColour: 'all',
   search: '',
   editingId: null,
   addOpen: false,
@@ -1259,6 +1301,7 @@ function onList(item) { return item.on_shopping_list === 'true' || item.on_shopp
 //  RENDER
 // ═══════════════════════════════════════
 function renderAll() {
+  buildFamilyDropdown();
   renderInventory();
   renderShopping();
   renderHistory();
@@ -1267,10 +1310,11 @@ function renderAll() {
 }
 
 function getFiltered() {
-  const f = S.filter, q = S.search.toLowerCase();
+  const fs = S.filterStatus, ff = S.filterFamily, q = S.search.toLowerCase();
   return S.inventory.filter(item => {
-    if (f === 'low') { const s = status(item); if (s !== 'low' && s !== 'critical') return false; }
-    else if (f !== 'all' && item.family !== f) return false;
+    if (fs === 'low') { const s = status(item); if (s !== 'low' && s !== 'critical') return false; }
+    else if (fs === 'critical') { if (status(item) !== 'critical') return false; }
+    if (ff !== 'all' && item.family !== ff) return false;
     if (q) {
       const hay = `${item.colour} ${item.brand} ${item.type} ${item.family}`.toLowerCase();
       if (!hay.includes(q)) return false;
@@ -1481,13 +1525,68 @@ function switchTab(tab) {
   closeAllForms();
 }
 
-function setFilter(f) {
-  S.filter = f;
-  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('active', c.dataset.filter === f));
+function toggleChipDropdown(name, e) {
+  e.stopPropagation();
+  const dd = document.getElementById('dropdown' + name.charAt(0).toUpperCase() + name.slice(1));
+  const wasOpen = dd.classList.contains('open');
+  closeAllChipDropdowns();
+  if (!wasOpen) dd.classList.add('open');
+}
+
+function closeAllChipDropdowns() {
+  document.querySelectorAll('.chip-dropdown').forEach(d => d.classList.remove('open'));
+}
+
+function selectChip(name, value) {
+  closeAllChipDropdowns();
+  if (name === 'status') {
+    S.filterStatus = value;
+    const labels = { all: 'All', low: 'Low stock', critical: 'Critical' };
+    const label = document.getElementById('chipStatusLabel');
+    if (label) label.textContent = labels[value] || value;
+    const chip = document.getElementById('chipStatus');
+    if (chip) chip.classList.toggle('active', value !== 'all');
+    document.querySelectorAll('#dropdownStatus .chip-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
+  } else if (name === 'family') {
+    S.filterFamily = value;
+    const label = document.getElementById('chipFamilyLabel');
+    if (label) label.textContent = value === 'all' ? 'Family' : value;
+    const chip = document.getElementById('chipFamily');
+    if (chip) chip.classList.toggle('active', value !== 'all');
+    document.querySelectorAll('#dropdownFamily .chip-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
+  }
   renderInventory();
 }
 
-function handleSearch(q) { S.search = q; renderInventory(); }
+function buildFamilyDropdown() {
+  const dd = document.getElementById('dropdownFamily');
+  if (!dd) return;
+  const families = [...new Set(S.inventory.map(i => i.family).filter(Boolean))].sort();
+  const current = S.filterFamily;
+  let html = `<div class="chip-option${current==='all'?' selected':''}" data-value="all" onclick="selectChip('family','all')">All</div>`;
+  families.forEach(f => {
+    html += `<div class="chip-option${current===f?' selected':''}" data-value="${f}" onclick="selectChip('family','${f.replace(/'/g,"\\'")}')"> ${f}</div>`;
+  });
+  dd.innerHTML = html;
+}
+
+function handleSearch(q) {
+  S.search = q;
+  const clear = document.getElementById('searchClear');
+  if (clear) clear.classList.toggle('visible', q.length > 0);
+  renderInventory();
+}
+
+function clearSearch() {
+  S.search = '';
+  const inp = document.getElementById('searchInput');
+  if (inp) inp.value = '';
+  const clear = document.getElementById('searchClear');
+  if (clear) clear.classList.remove('visible');
+  renderInventory();
+}
+
+document.addEventListener('click', closeAllChipDropdowns);
 
 // ═══════════════════════════════════════
 //  NOTIFICATIONS
