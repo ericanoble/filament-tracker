@@ -803,7 +803,7 @@
         <option>Red</option><option>Orange</option><option>Yellow</option>
         <option>Green</option><option>Blue</option><option>Purple</option>
         <option>Pink</option><option>White</option><option>Black</option>
-        <option>Grey</option><option>Natural</option><option>Special</option>
+        <option>Brown</option><option>Grey</option><option>Natural</option><option>Special</option>
       </select>
     </div>
     <div class="form-group">
@@ -1189,7 +1189,7 @@ function recalcAll() {
 // ═══════════════════════════════════════
 const BRANDS = ['eSUN','Bambu','Polymaker','Sunlu','Creality'];
 const SPOOL_SIZES = ['250','500','750','1000','2000','3000','5000'];
-const COLOUR_FAMILIES = ['Red','Orange','Yellow','Green','Blue','Purple','Pink','White','Black','Grey','Natural','Special'];
+const COLOUR_FAMILIES = ['Red','Orange','Yellow','Green','Blue','Purple','Pink','Brown','White','Black','Grey','Natural','Special'];
 
 function normaliseHex(hex) {
   if (!hex) return '';
@@ -1217,6 +1217,7 @@ function hexToColourFamily(hex) {
   if (s < 0.08) { if (l > 0.85) return 'White'; if (l < 0.2) return 'Black'; return 'Grey'; }
   if (l > 0.75 && s < 0.45) return 'Natural';
   if (h < 15 || h >= 345) return 'Red';
+  if (h < 45 && l < 0.45) return 'Brown';
   if (h < 45) return 'Orange';
   if (h < 70) return 'Yellow';
   if (h < 165) return 'Green';
