@@ -263,7 +263,7 @@
     .chip-option:hover { background: var(--color-background-secondary); }
     .chip-option.selected { color: var(--accent); font-weight: 600; }
     /* Search */
-    .search-wrap { position: relative; flex: 1; min-width: 0; }
+    .search-wrap { position: relative; flex: 1; min-width: 80px; }
     .search-wrap .search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-size: 14px; pointer-events: none; }
     .search-wrap .search-clear { position: absolute; right: 9px; top: 50%; transform: translateY(-50%); color: var(--color-text-secondary); font-size: 14px; cursor: pointer; display: none; background: none; border: none; padding: 0; line-height: 1; }
     .search-wrap .search-clear.visible { display: block; }
@@ -277,7 +277,8 @@
       font-family: inherit; font-size: 16px; outline: none;
     }
     .search-input:focus { border-color: var(--accent); }
-    .result-count { font-size: 12px; color: var(--color-text-secondary); flex-shrink: 0; }
+    .result-count { font-size: 12px; color: var(--color-text-secondary); margin-bottom: 10px; display: none; }
+    .result-count.visible { display: block; }
 
     /* ── CARD GRID ── */
     .card-grid {
@@ -905,8 +906,8 @@
           <i class="ti ti-x"></i>
         </button>
       </div>
-      <span class="result-count" id="resultCount"></span>
     </div>
+    <span class="result-count" id="resultCount"></span>
     <div class="card-grid" id="cardGrid"></div>
   </div>
 
@@ -1326,9 +1327,9 @@ function getFiltered() {
 function renderInventory() {
   const items = getFiltered();
   const count = document.getElementById('resultCount');
-  count.textContent = items.length === S.inventory.length
-    ? `${items.length} filaments`
-    : `${items.length} of ${S.inventory.length}`;
+  const isFiltered = S.filterStatus !== 'all' || S.filterFamily !== 'all' || S.search !== '';
+  count.classList.toggle('visible', isFiltered);
+  count.textContent = isFiltered ? `Showing ${items.length} of ${S.inventory.length}` : '';
 
   const grid = document.getElementById('cardGrid');
   if (!items.length) {

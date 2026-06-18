@@ -12,7 +12,30 @@ Your filament data goes directly from your browser to your private Gist using a 
 
 ---
 
-## Data stored (3 tables in your Gist)
+## The filament lifecycle
+
+```
+Wishlist → Shopping list → Order placed → Inventory → Stocktake
+```
+
+- **Wishlist** — things you want to try someday (don't own yet)
+- **Shopping list** — decided to buy; shows both low stock items and wishlist items, grouped by supplier
+- **Inventory** — what you own; added via the + button (small orders) or CSV import (bulk)
+- **Stocktake** — update quantity on hand when something prompts it
+
+---
+
+## Who uses the app
+
+| Role | Can do |
+|---|---|
+| Owner (you) | View, add, edit, stocktake, manage wishlist, record purchases |
+| Read-only (partner/kids) | View inventory, filter by colour — can't change anything |
+| Contributor *(future)* | View inventory + add to wishlist |
+
+---
+
+## Data stored (4 tables in your Gist)
 
 ### Inventory — one row per filament
 | Field | Notes |
@@ -25,7 +48,7 @@ Your filament data goes directly from your browser to your private Gist using a 
 | spool_weight_g | weight of one spool in grams |
 | low_stock_threshold | alert when qty falls below this (grams, default 500g) |
 | hex_colour | for the colour swatch on the card |
-| colour_family | *(Phase 2 — auto-detected from hex)* |
+| colour_family | *(Phase 2 — auto-detected from hex: Red, Yellow, Blue…)* |
 
 ### Purchases — one row per purchase event
 | Field | Notes |
@@ -50,6 +73,17 @@ Your filament data goes directly from your browser to your private Gist using a 
 
 **Quantity on hand** is calculated, not stored: `(latest stocktake + purchases since then) × spool weight in grams`
 
+### Wishlist — one row per item you want to try *(Phase 3 — not built yet)*
+| Field | Notes |
+|---|---|
+| id | unique key |
+| name | e.g. "foaming wood filament" |
+| family | e.g. PLA, specialty |
+| supplier | e.g. Cubic Technology |
+| approx_cost | |
+| notes | why you want it |
+| status | wishlist / on order |
+
 ---
 
 ## Feature status
@@ -60,16 +94,26 @@ Your filament data goes directly from your browser to your private Gist using a 
 - Quantity tracked in grams — spool weight dropdown, calculated from stocktakes + purchases
 - Low stock alerts — 500g threshold, Critical / Low badges on cards
 - Mobile layout — bottom tab bar, responsive cards
-- Brand & spool weight dropdowns — built dynamically from your inventory, learns as you add filaments
-- Filter bar Phase 1 — Status dropdown (All / Low stock / Critical), Family dropdown (dynamic), search with ✕ clear
+- Brand & spool weight dropdowns — built dynamically from your inventory
+- Filter bar — Status dropdown (All / Low stock / Critical), Family dropdown (dynamic), search with ✕ clear
+- Result count only shows when a filter or search is active
 
 ### 🔜 Phase 2
-- Colour chip filter — activate the greyed-out Colour dropdown by adding `colour_family` to inventory, auto-detected from hex value
+- Colour chip filter — add `colour_family` to inventory (auto-detected from hex), activate Colour dropdown
 
-### 📋 Planned (Phase 3)
-- Add filament form rebuild — predictive colour names by brand, automatic hex assignment, multi-spool qty entry
-- Colour picker moves from Add form to Edit card only
-- Supplier & order ID dropdowns — predictive from purchase history
+### 📋 Phase 3
+- Wishlist — new table; add/edit entries, move to shopping list when ready to buy
+- Shopping list redesign — shows low stock + wishlist together, grouped by supplier
+- Add filament form — full screen (not overlay on cards), buttons always visible, predictive colour names
+- CSV import — downloadable blank template with headers + one example row
+
+### 🔮 Future
+- Read-only sharing URL — for partner/kids to check what's in stock
+- Contributor access — wishlist-only write permission for family
+
+### ❌ Not building
+- Push notifications — seeing low stock when you open the app is enough
+- Print job planning — once the app is working properly you'll know what you have
 
 ---
 
