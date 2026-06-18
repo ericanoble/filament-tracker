@@ -797,6 +797,16 @@
       <input type="color" id="ef-hex" style="height:36px;padding:2px 4px;cursor:pointer">
     </div>
     <div class="form-group">
+      <label>Colour Family</label>
+      <select id="ef-colour-family">
+        <option value="">— auto-detect —</option>
+        <option>Red</option><option>Orange</option><option>Yellow</option>
+        <option>Green</option><option>Blue</option><option>Purple</option>
+        <option>Pink</option><option>White</option><option>Black</option>
+        <option>Grey</option><option>Natural</option><option>Special</option>
+      </select>
+    </div>
+    <div class="form-group">
       <label>Spool Weight</label>
       <select id="ef-weight" onchange="toggleCustomWeight('ef')">
         <option value="250">250g</option>
@@ -892,11 +902,12 @@
         </button>
         <div class="chip-dropdown" id="dropdownFamily" id="dropdownFamily"></div>
       </div>
-      <!-- Colour chip (Phase 2 placeholder) -->
-      <div class="chip-wrap">
-        <button class="chip" disabled>
-          <span>Colour</span> <i class="ti ti-chevron-down" style="font-size:10px"></i>
+      <!-- Colour chip -->
+      <div class="chip-wrap" id="chipWrapColour">
+        <button class="chip" id="chipColour" onclick="toggleChipDropdown('colour', event)">
+          <span id="chipColourLabel">Colour</span> <i class="ti ti-chevron-down" style="font-size:10px"></i>
         </button>
+        <div class="chip-dropdown" id="dropdownColour"></div>
       </div>
       <!-- Search -->
       <div class="search-wrap">
@@ -1051,7 +1062,7 @@ async function connectGist() {
       lsSet(STORE_GIST,  gistId);
     }
 
-    migrateThresholds(); recalcAll(); hideSetup(); renderAll();
+    migrateThresholds(); migrateColourFamilies(); recalcAll(); hideSetup(); renderAll();
     notify(inv_was_empty(gist) ? 'Connected — existing data migrated to your private Gist!' : 'Connected!', 'success', null, 4000);
   } catch (e) {
     document.getElementById('setupError').textContent = e.message;
@@ -1138,7 +1149,7 @@ async function loadData() {
     S.inventory  = parseGistFile(gist.files['inventory.csv']);
     S.purchases  = parseGistFile(gist.files['purchases.csv']);
     S.stocktakes = parseGistFile(gist.files['stocktakes.csv']);
-    migrateThresholds(); recalcAll(); hideSetup(); renderAll();
+    migrateThresholds(); migrateColourFamilies(); recalcAll(); hideSetup(); renderAll();
   } catch (e) {
     showSetup(`Couldn't load data: ${e.message}`);
   }
@@ -1178,6 +1189,47 @@ function recalcAll() {
 // ═══════════════════════════════════════
 const BRANDS = ['eSUN','Bambu','Polymaker','Sunlu','Creality'];
 const SPOOL_SIZES = ['250','500','750','1000','2000','3000','5000'];
+const COLOUR_FAMILIES = ['Red','Orange','Yellow','Green','Blue','Purple','Pink','White','Black','Grey','Natural','Special'];
+
+function normaliseHex(hex) {
+  if (!hex) return '';
+  hex = hex.trim().replace(/^#?/,'#');
+  if (/^#[0-9a-fA-F]{3}$/.test(hex)) hex = '#'+hex[1]+hex[1]+hex[2]+hex[2]+hex[3]+hex[3];
+  return /^#[0-9a-fA-F]{6}$/.test(hex) ? hex : '';
+}
+
+function hexToColourFamily(hex) {
+  hex = normaliseHex(hex);
+  if (!hex) return '';
+  const r = parseInt(hex.slice(1,3),16)/255;
+  const g = parseInt(hex.slice(3,5),16)/255;
+  const b = parseInt(hex.slice(5,7),16)/255;
+  const max = Math.max(r,g,b), min = Math.min(r,g,b);
+  const l = (max+min)/2;
+  const s = max===min ? 0 : l<0.5 ? (max-min)/(max+min) : (max-min)/(2-max-min);
+  let h = 0;
+  if (max !== min) {
+    if (max===r) h = ((g-b)/(max-min))%6;
+    else if (max===g) h = (b-r)/(max-min)+2;
+    else h = (r-g)/(max-min)+4;
+    h = h*60; if (h<0) h+=360;
+  }
+  if (s < 0.08) { if (l > 0.85) return 'White'; if (l < 0.2) return 'Black'; return 'Grey'; }
+  if (l > 0.75 && s < 0.45) return 'Natural';
+  if (h < 15 || h >= 345) return 'Red';
+  if (h < 45) return 'Orange';
+  if (h < 70) return 'Yellow';
+  if (h < 165) return 'Green';
+  if (h < 255) return 'Blue';
+  if (h < 290) return 'Purple';
+  return 'Pink';
+}
+
+function matchColourFamily(str) {
+  if (!str) return '';
+  const lower = str.trim().toLowerCase();
+  return COLOUR_FAMILIES.find(f => f.toLowerCase() === lower) || '';
+}
 
 function toggleCustomBrand(prefix) {
   const sel = document.getElementById(prefix + '-brand');
@@ -1242,8 +1294,14 @@ function setWeightDropdown(prefix, value) {
 function migrateThresholds() {
   S.inventory.forEach(item => {
     const t = parseFloat(item.low_stock_threshold);
-    if (!isNaN(t) && t < 100) {
-      item.low_stock_threshold = '500';
+    if (!isNaN(t) && t < 100) { item.low_stock_threshold = '500'; }
+  });
+}
+
+function migrateColourFamilies() {
+  S.inventory.forEach(item => {
+    if (!item.colour_family) {
+      item.colour_family = hexToColourFamily(item.hex || '');
     }
   });
 }
@@ -1303,6 +1361,7 @@ function onList(item) { return item.on_shopping_list === 'true' || item.on_shopp
 // ═══════════════════════════════════════
 function renderAll() {
   buildFamilyDropdown();
+  buildColourDropdown();
   renderInventory();
   renderShopping();
   renderHistory();
@@ -1311,11 +1370,12 @@ function renderAll() {
 }
 
 function getFiltered() {
-  const fs = S.filterStatus, ff = S.filterFamily, q = S.search.toLowerCase();
+  const fs = S.filterStatus, ff = S.filterFamily, fc = S.filterColour, q = S.search.toLowerCase();
   return S.inventory.filter(item => {
     if (fs === 'low') { const s = status(item); if (s !== 'low' && s !== 'critical') return false; }
     else if (fs === 'critical') { if (status(item) !== 'critical') return false; }
     if (ff !== 'all' && item.family !== ff) return false;
+    if (fc !== 'all' && item.colour_family !== fc) return false;
     if (q) {
       const hay = `${item.colour} ${item.brand} ${item.type} ${item.family}`.toLowerCase();
       if (!hay.includes(q)) return false;
@@ -1327,7 +1387,7 @@ function getFiltered() {
 function renderInventory() {
   const items = getFiltered();
   const count = document.getElementById('resultCount');
-  const isFiltered = S.filterStatus !== 'all' || S.filterFamily !== 'all' || S.search !== '';
+  const isFiltered = S.filterStatus !== 'all' || S.filterFamily !== 'all' || S.filterColour !== 'all' || S.search !== '';
   count.classList.toggle('visible', isFiltered);
   count.textContent = isFiltered ? `Showing ${items.length} of ${S.inventory.length}` : '';
 
@@ -1555,8 +1615,27 @@ function selectChip(name, value) {
     const chip = document.getElementById('chipFamily');
     if (chip) chip.classList.toggle('active', value !== 'all');
     document.querySelectorAll('#dropdownFamily .chip-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
+  } else if (name === 'colour') {
+    S.filterColour = value;
+    const label = document.getElementById('chipColourLabel');
+    if (label) label.textContent = value === 'all' ? 'Colour' : value;
+    const chip = document.getElementById('chipColour');
+    if (chip) chip.classList.toggle('active', value !== 'all');
+    document.querySelectorAll('#dropdownColour .chip-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
   }
   renderInventory();
+}
+
+function buildColourDropdown() {
+  const dd = document.getElementById('dropdownColour');
+  if (!dd) return;
+  const families = [...new Set(S.inventory.map(i => i.colour_family).filter(Boolean))].sort();
+  const current = S.filterColour;
+  let html = `<div class="chip-option${current==='all'?' selected':''}" data-value="all" onclick="selectChip('colour','all')">All</div>`;
+  families.forEach(f => {
+    html += `<div class="chip-option${current===f?' selected':''}" data-value="${f}" onclick="selectChip('colour','${f.replace(/'/g,"\\'")}')"> ${f}</div>`;
+  });
+  dd.innerHTML = html;
 }
 
 function buildFamilyDropdown() {
@@ -1702,6 +1781,7 @@ function saveNewFilament() {
     type:            document.getElementById('af-type').value.trim(),
     colour,
     hex:             document.getElementById('af-hex').value,
+    colour_family:   hexToColourFamily(document.getElementById('af-hex').value),
     spool_weight_g:  getWeightValue('af'),
     qty_on_hand:     String(qty),
     low_stock_threshold: document.getElementById('af-threshold').value||'500',
@@ -1742,6 +1822,7 @@ function openEditForm(id) {
   document.getElementById('ef-type').value     = item.type||'';
   document.getElementById('ef-colour').value   = item.colour||'';
   document.getElementById('ef-hex').value      = item.hex||'#888888';
+  document.getElementById('ef-colour-family').value = item.colour_family||'';
   setWeightDropdown('ef', item.spool_weight_g||'1000');
   document.getElementById('ef-threshold').value = item.low_stock_threshold||'500';
   document.getElementById('ef-notes').value    = item.notes||'';
@@ -1761,6 +1842,7 @@ function saveEdit() {
   item.type                = document.getElementById('ef-type').value.trim();
   item.colour              = document.getElementById('ef-colour').value.trim();
   item.hex                 = document.getElementById('ef-hex').value;
+  item.colour_family       = document.getElementById('ef-colour-family').value || hexToColourFamily(item.hex);
   item.spool_weight_g      = getWeightValue('ef');
   item.low_stock_threshold = document.getElementById('ef-threshold').value;
   item.notes               = document.getElementById('ef-notes').value.trim();
@@ -1914,7 +1996,14 @@ function importCSV(type, inp) {
   const rd = new FileReader();
   rd.onload = e => {
     const rows = Papa.parse(e.target.result, {header:true,skipEmptyLines:true}).data;
-    if (type==='inventory') S.inventory = rows;
+    if (type==='inventory') {
+      S.inventory = rows.map(row => {
+        if (row.hex) row.hex = normaliseHex(row.hex) || row.hex;
+        if (row.colour_family) row.colour_family = matchColourFamily(row.colour_family) || '';
+        else row.colour_family = hexToColourFamily(row.hex || '');
+        return row;
+      });
+    }
     else if (type==='purchases') S.purchases = rows;
     else S.stocktakes = rows;
     recalcAll(); renderAll();
