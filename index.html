@@ -73,17 +73,12 @@
     }
     .app-logo-text { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
     .header-right { display: flex; align-items: center; gap: 8px; }
-    .low-stock-badge {
-      background: rgba(216,90,48,0.22);
-      color: #ff9068;
-      font-size: 12px;
-      font-weight: 600;
-      padding: 4px 10px;
-      border-radius: 20px;
-      display: none;
-      white-space: nowrap;
+    .chip.alert-critical { background: rgba(216,90,48,0.18); border-color: rgba(216,90,48,0.4); color: #e0602b; }
+    .chip.alert-low { background: rgba(200,140,0,0.15); border-color: rgba(200,140,0,0.4); color: #9a6b00; }
+    @media (prefers-color-scheme: dark) {
+      .chip.alert-critical { background: rgba(216,90,48,0.25); border-color: rgba(216,90,48,0.5); color: #ff9068; }
+      .chip.alert-low { background: rgba(255,170,0,0.2); border-color: rgba(255,170,0,0.4); color: #ffb830; }
     }
-    .low-stock-badge.visible { display: block; }
     .btn-add {
       background: var(--accent);
       color: #fff;
@@ -659,7 +654,12 @@
     <span class="app-logo-text">Filament Tracker</span>
   </div>
   <div class="header-right">
-    <span class="low-stock-badge" id="lowStockBadge"></span>
+    <div class="chip-wrap" id="alertChipWrap" style="display:none">
+      <button class="chip" id="alertChip">
+        <span id="alertChipLabel"></span>
+      </button>
+      <div class="chip-dropdown" id="alertChipDropdown"></div>
+    </div>
     <button class="btn-save" id="btnSave" onclick="saveToGist()">
       <i class="ti ti-device-floppy"></i><span class="btn-label"> Save</span>
     </button>
@@ -900,16 +900,12 @@
   <!-- INVENTORY -->
   <div class="tab-content active" id="tab-inventory">
     <div class="filter-bar">
-      <!-- Status chip -->
-      <div class="chip-wrap" id="chipWrapStatus">
-        <button class="chip" id="chipStatus" onclick="toggleChipDropdown('status', event)">
-          <span id="chipStatusLabel">All</span> <i class="ti ti-chevron-down" style="font-size:10px"></i>
+      <!-- Brand chip -->
+      <div class="chip-wrap" id="chipWrapBrand">
+        <button class="chip" id="chipBrand" onclick="toggleChipDropdown('brand', event)">
+          <span id="chipBrandLabel">Brand</span> <i class="ti ti-chevron-down" style="font-size:10px"></i>
         </button>
-        <div class="chip-dropdown" id="dropdownStatus">
-          <div class="chip-option" data-value="all" onclick="selectChip('status','all')">All</div>
-          <div class="chip-option" data-value="low" onclick="selectChip('status','low')">Low stock</div>
-          <div class="chip-option" data-value="critical" onclick="selectChip('status','critical')">Critical</div>
-        </div>
+        <div class="chip-dropdown" id="dropdownBrand"></div>
       </div>
       <!-- Family chip -->
       <div class="chip-wrap" id="chipWrapFamily">
@@ -983,6 +979,7 @@ const S = {
   stocktakes: [],
   activeTab: 'inventory',
   filterStatus: 'all',
+  filterBrand:  'all',
   filterFamily: 'all',
   filterColour: 'all',
   search: '',
@@ -1394,6 +1391,7 @@ function onList(item) { return item.on_shopping_list === 'true' || item.on_shopp
 //  RENDER
 // ═══════════════════════════════════════
 function renderAll() {
+  buildBrandDropdown();
   buildFamilyDropdown();
   buildColourDropdown();
   renderInventory();
@@ -1404,10 +1402,12 @@ function renderAll() {
 }
 
 function getFiltered() {
-  const fs = S.filterStatus, ff = S.filterFamily, fc = S.filterColour, q = S.search.toLowerCase();
+  const fs = S.filterStatus, fb = S.filterBrand, ff = S.filterFamily, fc = S.filterColour, q = S.search.toLowerCase();
   return S.inventory.filter(item => {
+    if (item.archived === 'true') return false;
     if (fs === 'low') { const s = status(item); if (s !== 'low' && s !== 'critical') return false; }
     else if (fs === 'critical') { if (status(item) !== 'critical') return false; }
+    if (fb !== 'all' && item.brand !== fb) return false;
     if (ff !== 'all' && item.family !== ff) return false;
     if (fc !== 'all' && item.colour_family !== fc) return false;
     if (q) {
@@ -1421,7 +1421,7 @@ function getFiltered() {
 function renderInventory() {
   const items = getFiltered();
   const count = document.getElementById('resultCount');
-  const isFiltered = S.filterStatus !== 'all' || S.filterFamily !== 'all' || S.filterColour !== 'all' || S.search !== '';
+  const isFiltered = S.filterStatus !== 'all' || S.filterBrand !== 'all' || S.filterFamily !== 'all' || S.filterColour !== 'all' || S.search !== '';
   count.classList.toggle('visible', isFiltered);
   count.textContent = isFiltered ? `Showing ${items.length} of ${S.inventory.length}` : '';
 
@@ -1832,10 +1832,65 @@ function renderStocktake() {
 }
 
 function updateBadge() {
-  const n = S.inventory.filter(i => { const s=status(i); return s==='low'||s==='critical'; }).length;
-  const el = document.getElementById('lowStockBadge');
-  if (n > 0) { el.textContent = `⚠ ${n} low`; el.classList.add('visible'); }
-  else el.classList.remove('visible');
+  const active = S.inventory.filter(i => i.archived !== 'true');
+  const critN = active.filter(i => status(i) === 'critical').length;
+  const lowN  = active.filter(i => status(i) === 'low').length;
+  const wrap  = document.getElementById('alertChipWrap');
+  const chip  = document.getElementById('alertChip');
+  const label = document.getElementById('alertChipLabel');
+  const dd    = document.getElementById('alertChipDropdown');
+  if (!wrap) return;
+
+  if (critN === 0 && lowN === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = '';
+
+  if (critN > 0 && lowN === 0) {
+    chip.className = 'chip alert-critical';
+    label.textContent = `${critN} critical`;
+    dd.innerHTML = '';
+    chip.onclick = () => goToAlertFilter('critical');
+  } else if (lowN > 0 && critN === 0) {
+    chip.className = 'chip alert-low';
+    label.textContent = `${lowN} low`;
+    dd.innerHTML = '';
+    chip.onclick = () => goToAlertFilter('low');
+  } else {
+    chip.className = 'chip alert-critical';
+    label.innerHTML = `${critN + lowN} items <i class="ti ti-chevron-down" style="font-size:10px"></i>`;
+    dd.innerHTML = `
+      <div class="chip-option" onclick="goToAlertFilter('low')">All low + critical (${critN + lowN})</div>
+      <div class="chip-option" onclick="goToAlertFilter('critical')">Critical only (${critN})</div>`;
+    chip.onclick = e => {
+      e.stopPropagation();
+      const wasOpen = dd.classList.contains('open');
+      closeAllChipDropdowns();
+      if (!wasOpen) dd.classList.add('open');
+    };
+  }
+}
+
+function goToAlertFilter(filterVal) {
+  closeAllChipDropdowns();
+  S.filterStatus = filterVal;
+  S.filterBrand  = 'all';
+  S.filterFamily = 'all';
+  S.filterColour = 'all';
+  S.search       = '';
+  const brandLbl = document.getElementById('chipBrandLabel');
+  if (brandLbl) { brandLbl.textContent = 'Brand'; document.getElementById('chipBrand')?.classList.remove('active'); }
+  const famLbl = document.getElementById('chipFamilyLabel');
+  if (famLbl) { famLbl.textContent = 'Family'; document.getElementById('chipFamily')?.classList.remove('active'); }
+  const colLbl = document.getElementById('chipColourLabel');
+  if (colLbl) { colLbl.textContent = 'Colour'; document.getElementById('chipColour')?.classList.remove('active'); }
+  const srch = document.getElementById('searchInput');
+  if (srch) srch.value = '';
+  const clear = document.getElementById('searchClear');
+  if (clear) clear.classList.remove('visible');
+  switchTab('inventory');
+  renderInventory();
 }
 
 // ═══════════════════════════════════════
@@ -1862,14 +1917,13 @@ function closeAllChipDropdowns() {
 
 function selectChip(name, value) {
   closeAllChipDropdowns();
-  if (name === 'status') {
-    S.filterStatus = value;
-    const labels = { all: 'All', low: 'Low stock', critical: 'Critical' };
-    const label = document.getElementById('chipStatusLabel');
-    if (label) label.textContent = labels[value] || value;
-    const chip = document.getElementById('chipStatus');
+  if (name === 'brand') {
+    S.filterBrand = value;
+    const label = document.getElementById('chipBrandLabel');
+    if (label) label.textContent = value === 'all' ? 'Brand' : value;
+    const chip = document.getElementById('chipBrand');
     if (chip) chip.classList.toggle('active', value !== 'all');
-    document.querySelectorAll('#dropdownStatus .chip-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
+    document.querySelectorAll('#dropdownBrand .chip-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
   } else if (name === 'family') {
     S.filterFamily = value;
     const label = document.getElementById('chipFamilyLabel');
@@ -1888,10 +1942,24 @@ function selectChip(name, value) {
   renderInventory();
 }
 
+function buildBrandDropdown() {
+  const dd = document.getElementById('dropdownBrand');
+  if (!dd) return;
+  const active = S.inventory.filter(i => i.archived !== 'true');
+  const brands = [...new Set(active.map(i => i.brand).filter(Boolean))].sort();
+  const current = S.filterBrand;
+  let html = `<div class="chip-option${current==='all'?' selected':''}" data-value="all" onclick="selectChip('brand','all')">All</div>`;
+  brands.forEach(b => {
+    html += `<div class="chip-option${current===b?' selected':''}" data-value="${esc(b)}" onclick="selectChip('brand','${b.replace(/'/g,"\\'")}')"> ${esc(b)}</div>`;
+  });
+  dd.innerHTML = html;
+}
+
 function buildColourDropdown() {
   const dd = document.getElementById('dropdownColour');
   if (!dd) return;
-  const families = [...new Set(S.inventory.map(i => i.colour_family).filter(Boolean))].sort();
+  const active = S.inventory.filter(i => i.archived !== 'true');
+  const families = [...new Set(active.map(i => i.colour_family).filter(Boolean))].sort();
   const current = S.filterColour;
   let html = `<div class="chip-option${current==='all'?' selected':''}" data-value="all" onclick="selectChip('colour','all')">All</div>`;
   families.forEach(f => {
@@ -1903,7 +1971,8 @@ function buildColourDropdown() {
 function buildFamilyDropdown() {
   const dd = document.getElementById('dropdownFamily');
   if (!dd) return;
-  const families = [...new Set(S.inventory.map(i => i.family).filter(Boolean))].sort();
+  const active = S.inventory.filter(i => i.archived !== 'true');
+  const families = [...new Set(active.map(i => i.family).filter(Boolean))].sort();
   const current = S.filterFamily;
   let html = `<div class="chip-option${current==='all'?' selected':''}" data-value="all" onclick="selectChip('family','all')">All</div>`;
   families.forEach(f => {
