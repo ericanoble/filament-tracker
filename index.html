@@ -394,6 +394,22 @@
     .si-info { flex: 1; min-width: 0; }
     .si-name { font-size: 13px; font-weight: 600; }
     .si-meta { font-size: 11px; color: var(--color-text-secondary); }
+    .shopping-item { cursor: pointer; }
+    .shopping-item:active { opacity: 0.75; }
+    .section-empty { font-size: 13px; color: var(--color-text-secondary); padding: 2px 0 6px; margin: 0; }
+    .wishlist-placeholder {
+      width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0;
+      background: var(--color-background-secondary);
+      border: 1px solid var(--color-border-tertiary);
+      display: flex; align-items: center; justify-content: center;
+      color: var(--color-text-secondary); font-size: 14px;
+    }
+    .wishlist-form {
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 10px; padding: 14px;
+      margin-top: 6px;
+    }
     .shopping-copy-btn {
       margin-top: 14px;
       background: var(--color-background-secondary);
@@ -1003,6 +1019,7 @@ const S = {
   inventory: [],
   purchases: [],
   stocktakes: [],
+  wishlist: [],
   activeTab: 'inventory',
   filterStatus: 'all',
   filterBrand:  'all',
@@ -1015,6 +1032,7 @@ const S = {
   pendingUsedId: null,
   dirty: false,
   showArchived: false,
+  wishlistFormOpen: false,
   stFilterFamily: 'all',
   stFilterColour: 'all',
   stSearch: '',
@@ -1087,6 +1105,7 @@ async function connectGist() {
     S.inventory  = parseGistFile(gist.files['inventory.csv']);
     S.purchases  = parseGistFile(gist.files['purchases.csv']);
     S.stocktakes = parseGistFile(gist.files['stocktakes.csv']);
+    S.wishlist   = parseGistFile(gist.files['wishlist.csv']);
 
     // If Gist is empty, migrate existing data from the repo
     if (!S.inventory.length) {
@@ -1137,16 +1156,18 @@ async function saveToGist() {
 }
 
 async function _pushToGist(token, gistId) {
-  const INV_H = 'id,brand,family,type,colour,hex,colour_family,spool_weight_g,qty_on_hand,low_stock_threshold_g,critical_stock_threshold_g,on_shopping_list,archived,notes\n';
-  const PUR_H = 'id,inventory_id,purchase_date,qty_purchased,order_id,supplier,style,notes\n';
-  const STK_H = 'id,inventory_id,stocktake_date,qty_counted_g,notes\n';
+  const INV_H  = 'id,brand,family,type,colour,hex,colour_family,spool_weight_g,qty_on_hand,low_stock_threshold_g,critical_stock_threshold_g,on_shopping_list,archived,notes\n';
+  const PUR_H  = 'id,inventory_id,purchase_date,qty_purchased,order_id,supplier,style,notes\n';
+  const STK_H  = 'id,inventory_id,stocktake_date,qty_counted_g,notes\n';
+  const WISH_H = 'id,name,type,notes,added_date\n';
   const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ files: {
-      'inventory.csv':  { content: S.inventory.length  ? toCSV(S.inventory)  : INV_H },
-      'purchases.csv':  { content: S.purchases.length  ? toCSV(S.purchases)  : PUR_H },
-      'stocktakes.csv': { content: S.stocktakes.length ? toCSV(S.stocktakes) : STK_H },
+      'inventory.csv':  { content: S.inventory.length  ? toCSV(S.inventory)  : INV_H  },
+      'purchases.csv':  { content: S.purchases.length  ? toCSV(S.purchases)  : PUR_H  },
+      'stocktakes.csv': { content: S.stocktakes.length ? toCSV(S.stocktakes) : STK_H  },
+      'wishlist.csv':   { content: S.wishlist.length   ? toCSV(S.wishlist)   : WISH_H },
     }})
   });
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -1192,6 +1213,7 @@ async function loadData() {
     S.inventory  = parseGistFile(gist.files['inventory.csv']);
     S.purchases  = parseGistFile(gist.files['purchases.csv']);
     S.stocktakes = parseGistFile(gist.files['stocktakes.csv']);
+    S.wishlist   = parseGistFile(gist.files['wishlist.csv']);
     migrateThresholds(); migrateColourFamilies(); recalcAll(); hideSetup(); renderAll();
   } catch (e) {
     showSetup(`Couldn't load data: ${e.message}`);
@@ -1525,47 +1547,122 @@ function renderCard(item) {
 }
 
 function renderShopping() {
-  const flagged = S.inventory.filter(item => { const s = status(item); return (s==='low'||s==='critical') && !onList(item); });
-  const manual  = S.inventory.filter(item => onList(item));
+  const runningLow = S.inventory
+    .filter(i => i.archived !== 'true' && (status(i) === 'critical' || status(i) === 'low'))
+    .sort((a, b) => {
+      const sa = status(a), sb = status(b);
+      if (sa !== sb) return sa === 'critical' ? -1 : 1;
+      return (parseInt(a.qty_on_hand) || 0) - (parseInt(b.qty_on_hand) || 0);
+    });
+  const wantToBuy = S.inventory.filter(i => i.archived !== 'true' && onList(i) && status(i) === 'good');
+  const wishlist  = S.wishlist;
+  const total = runningLow.length + wantToBuy.length + wishlist.length;
+
+  if (total === 0 && !S.wishlistFormOpen) {
+    document.getElementById('shoppingContent').innerHTML =
+      `<div class="empty-state"><i class="ti ti-check"></i><p>All stocked up — nothing on your buy list or wishlist.</p></div>`;
+    return;
+  }
 
   let html = '';
 
-  if (!flagged.length && !manual.length) {
-    html = `<div class="empty-state"><i class="ti ti-check"></i><p>Shopping list is empty — all stocked up!</p></div>`;
+  html += `<div class="section-title">Running low <span class="section-count">${runningLow.length}</span></div>`;
+  html += runningLow.length
+    ? runningLow.map(i => buyRow(i, false)).join('')
+    : `<p class="section-empty">None right now.</p>`;
+
+  html += `<div class="section-title">Want to buy <span class="section-count">${wantToBuy.length}</span></div>`;
+  html += wantToBuy.length
+    ? wantToBuy.map(i => buyRow(i, true)).join('')
+    : `<p class="section-empty">Tap the cart icon on any good item to add it here.</p>`;
+
+  html += `<div class="section-title">Wishlist <span class="section-count">${wishlist.length}</span></div>`;
+  html += wishlist.map(w => wishlistRow(w)).join('');
+
+  if (S.wishlistFormOpen) {
+    html += `<div class="wishlist-form">
+      <div class="form-grid" style="margin-bottom:10px">
+        <div class="form-group full"><label>Name *</label>
+          <input type="text" id="wf-name" placeholder="e.g. eSUN Navy Blue PLA+" autocomplete="off">
+        </div>
+        <div class="form-group"><label>Type</label>
+          <input type="text" id="wf-type" placeholder="e.g. PLA+" autocomplete="off">
+        </div>
+        <div class="form-group"><label>Notes</label>
+          <input type="text" id="wf-notes" placeholder="optional" autocomplete="off">
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-primary" onclick="saveWishlistItem()">Add to wishlist</button>
+        <button class="btn-secondary" onclick="toggleWishlistForm()">Cancel</button>
+      </div>
+    </div>`;
   } else {
-    html += `<div class="section-title">Auto-flagged — Low or Critical <span class="section-count">${flagged.length}</span></div>`;
-    if (flagged.length) {
-      html += flagged.map(i => shoppingRow(i, false)).join('');
-    } else {
-      html += `<p style="font-size:13px;color:var(--color-text-secondary);padding:4px 0 8px">None — all auto-flagged items are sorted.</p>`;
-    }
-
-    html += `<div class="section-title">Manually added <span class="section-count">${manual.length}</span></div>`;
-    if (manual.length) {
-      html += manual.map(i => shoppingRow(i, true)).join('');
-    } else {
-      html += `<p style="font-size:13px;color:var(--color-text-secondary);padding:4px 0 8px">None — use the 🛒 button on any card to add.</p>`;
-    }
-
-    if (flagged.length || manual.length) {
-      html += `<button class="shopping-copy-btn" onclick="copyList()"><i class="ti ti-copy"></i> Copy list to clipboard</button>`;
-    }
+    html += `<button class="btn-secondary" style="width:100%;margin-top:8px;justify-content:center" onclick="toggleWishlistForm()">
+      <i class="ti ti-plus"></i> Add to wishlist
+    </button>`;
   }
+
+  if (total > 0) {
+    html += `<button class="shopping-copy-btn" onclick="copyList()"><i class="ti ti-copy"></i> Copy list to clipboard</button>`;
+  }
+
   document.getElementById('shoppingContent').innerHTML = html;
+  if (S.wishlistFormOpen) setTimeout(() => document.getElementById('wf-name')?.focus(), 30);
 }
 
-function shoppingRow(item, showRemove) {
-  const st = status(item);
+function buyRow(item, showRemove) {
+  const st  = status(item);
   const qty = parseInt(item.qty_on_hand) || 0;
-  return `<div class="shopping-item">
+  return `<div class="shopping-item" onclick="openEditForm(${item.id})">
     <div class="colour-dot" style="background:${esc(item.hex)}"></div>
     <div class="si-info">
       <div class="si-name">${esc(item.colour)}</div>
       <div class="si-meta">${esc(item.brand)} · ${esc(item.type)} · ${fmtGrams(qty)} on hand</div>
     </div>
     <span class="status-badge ${st}">${st}</span>
-    ${showRemove ? `<button class="icon-btn" title="Remove from list" onclick="toggleList(${item.id})"><i class="ti ti-x"></i></button>` : ''}
+    ${showRemove ? `<button class="icon-btn" title="Remove from list" onclick="event.stopPropagation();toggleList(${item.id})"><i class="ti ti-x"></i></button>` : ''}
   </div>`;
+}
+
+function wishlistRow(w) {
+  const meta = [w.type, w.notes].filter(Boolean).join(' · ');
+  return `<div class="shopping-item" style="cursor:default">
+    <div class="wishlist-placeholder"><i class="ti ti-sparkles"></i></div>
+    <div class="si-info">
+      <div class="si-name">${esc(w.name)}</div>
+      ${meta ? `<div class="si-meta">${esc(meta)}</div>` : ''}
+    </div>
+    <button class="icon-btn" title="Remove from wishlist" onclick="removeWishlistItem('${esc(w.id)}')"><i class="ti ti-x"></i></button>
+  </div>`;
+}
+
+function toggleWishlistForm() {
+  S.wishlistFormOpen = !S.wishlistFormOpen;
+  renderShopping();
+}
+
+function saveWishlistItem() {
+  const name = document.getElementById('wf-name')?.value.trim();
+  if (!name) { notify('Please enter a name.', 'error'); return; }
+  S.wishlist.push({
+    id:         String(nextId(S.wishlist)),
+    name,
+    type:       document.getElementById('wf-type')?.value.trim()  || '',
+    notes:      document.getElementById('wf-notes')?.value.trim() || '',
+    added_date: todayStr(),
+  });
+  S.wishlistFormOpen = false;
+  setDirty(true);
+  saveToGistSilent();
+  renderShopping();
+}
+
+function removeWishlistItem(id) {
+  S.wishlist = S.wishlist.filter(w => String(w.id) !== String(id));
+  setDirty(true);
+  saveToGistSilent();
+  renderShopping();
 }
 
 function renderHistory() {
@@ -2105,13 +2202,29 @@ function toggleList(id) {
 }
 
 function copyList() {
-  const flagged = S.inventory.filter(i => { const s=status(i); return (s==='low'||s==='critical') && !onList(i); });
-  const manual  = S.inventory.filter(i => onList(i));
-  const lines = ['Filament shopping list', ...([...flagged,...manual].map(i => {
-    const qty = parseInt(i.qty_on_hand)||0;
-    return `• ${i.brand} ${i.type} – ${i.colour} — ${fmtGrams(qty)} on hand (${status(i)})`;
-  }))];
-  navigator.clipboard.writeText(lines.join('\n'))
+  const runningLow = S.inventory
+    .filter(i => i.archived !== 'true' && (status(i) === 'critical' || status(i) === 'low'))
+    .sort((a, b) => { const sa=status(a),sb=status(b); if(sa!==sb) return sa==='critical'?-1:1; return (parseInt(a.qty_on_hand)||0)-(parseInt(b.qty_on_hand)||0); });
+  const wantToBuy = S.inventory.filter(i => i.archived !== 'true' && onList(i) && status(i) === 'good');
+  const lines = ['Filament shopping list', ''];
+  if (runningLow.length) {
+    lines.push('Running low:');
+    runningLow.forEach(i => lines.push(`• ${i.brand} ${i.type} – ${i.colour} (${status(i)}, ${fmtGrams(parseInt(i.qty_on_hand)||0)} on hand)`));
+    lines.push('');
+  }
+  if (wantToBuy.length) {
+    lines.push('Want to buy:');
+    wantToBuy.forEach(i => lines.push(`• ${i.brand} ${i.type} – ${i.colour}`));
+    lines.push('');
+  }
+  if (S.wishlist.length) {
+    lines.push('Wishlist:');
+    S.wishlist.forEach(w => {
+      const detail = [w.type, w.notes].filter(Boolean).join(', ');
+      lines.push(`• ${w.name}${detail ? ` (${detail})` : ''}`);
+    });
+  }
+  navigator.clipboard.writeText(lines.join('\n').trim())
     .then(() => notify('Shopping list copied to clipboard!', 'success'))
     .catch(() => notify('Copy failed — try selecting the list manually.', 'error'));
 }
@@ -2448,6 +2561,7 @@ async function exportAllZip() {
   zip.file('inventory.csv', toCSV(S.inventory));
   zip.file('purchases.csv', toCSV(S.purchases));
   zip.file('stocktakes.csv', S.stocktakes.length ? toCSV(S.stocktakes) : headerOnlyCSV(['id','inventory_id','stocktake_date','qty_counted_g','notes']));
+  zip.file('wishlist.csv',   S.wishlist.length   ? toCSV(S.wishlist)   : headerOnlyCSV(['id','name','type','notes','added_date']));
   const blob = await zip.generateAsync({type:'blob'});
   triggerDL(blob, 'filament-tracker-data.zip');
 }
