@@ -441,6 +441,31 @@
       .style-pill.refilament { background: #0d2a18; color: #66d494; }
     }
 
+    /* ── ARCHIVED ── */
+    .archived-toggle {
+      display: flex; align-items: center; gap: 6px;
+      width: 100%; text-align: left;
+      background: none; border: 1px dashed var(--color-border-tertiary);
+      border-radius: 8px; padding: 10px 14px; margin-top: 10px;
+      font-size: 13px; font-weight: 500; color: var(--color-text-secondary);
+      cursor: pointer; font-family: inherit;
+    }
+    .archived-toggle:hover { border-color: var(--color-text-secondary); }
+    .archived-list { margin-top: 6px; }
+    .archived-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 9px 13px; margin-bottom: 5px;
+      background: var(--color-background-primary);
+      border: 1px solid var(--color-border-tertiary);
+      border-radius: 8px; opacity: 0.6;
+    }
+    .archived-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 7px;
+      border-radius: 10px; white-space: nowrap;
+      background: var(--color-background-secondary);
+      color: var(--color-text-secondary);
+    }
+
     /* ── STOCKTAKE ── */
     .stocktake-intro {
       background: var(--color-background-primary);
@@ -932,6 +957,7 @@
     </div>
     <span class="result-count" id="resultCount"></span>
     <div class="card-grid" id="cardGrid"></div>
+    <div id="archivedSection"></div>
   </div>
 
   <!-- SHOPPING LIST -->
@@ -988,6 +1014,7 @@ const S = {
   purchaseId: null,
   pendingUsedId: null,
   dirty: false,
+  showArchived: false,
   stFilterFamily: 'all',
   stFilterColour: 'all',
   stSearch: '',
@@ -1420,17 +1447,45 @@ function getFiltered() {
 
 function renderInventory() {
   const items = getFiltered();
+  const activeTotal = S.inventory.filter(i => i.archived !== 'true').length;
   const count = document.getElementById('resultCount');
   const isFiltered = S.filterStatus !== 'all' || S.filterBrand !== 'all' || S.filterFamily !== 'all' || S.filterColour !== 'all' || S.search !== '';
   count.classList.toggle('visible', isFiltered);
-  count.textContent = isFiltered ? `Showing ${items.length} of ${S.inventory.length}` : '';
+  count.textContent = isFiltered ? `Showing ${items.length} of ${activeTotal}` : '';
 
   const grid = document.getElementById('cardGrid');
-  if (!items.length) {
-    grid.innerHTML = `<div class="empty-state"><i class="ti ti-search"></i><p>No filaments match</p></div>`;
-    return;
+  grid.innerHTML = items.length
+    ? items.map(renderCard).join('')
+    : `<div class="empty-state"><i class="ti ti-search"></i><p>No filaments match</p></div>`;
+
+  const archivedEl = document.getElementById('archivedSection');
+  if (!archivedEl) return;
+  const archivedItems = S.inventory.filter(i => i.archived === 'true');
+  if (!archivedItems.length) { archivedEl.innerHTML = ''; return; }
+  let arch = `<button class="archived-toggle" onclick="toggleShowArchived()">
+    <i class="ti ti-archive"></i> ${S.showArchived ? 'Hide' : 'Show'} archived (${archivedItems.length})
+  </button>`;
+  if (S.showArchived) {
+    arch += `<div class="archived-list">${archivedItems.map(renderArchivedCard).join('')}</div>`;
   }
-  grid.innerHTML = items.map(renderCard).join('');
+  archivedEl.innerHTML = arch;
+}
+
+function renderArchivedCard(item) {
+  return `<div class="archived-row">
+    <div class="colour-dot" style="background:${esc(item.hex)}"></div>
+    <div class="si-info">
+      <div class="si-name">${esc(item.colour)}</div>
+      <div class="si-meta">${esc(item.brand)} · ${esc(item.type)}</div>
+    </div>
+    <span class="archived-badge">Archived</span>
+    <button class="icon-btn" title="Edit" onclick="openEditForm(${item.id})"><i class="ti ti-edit"></i></button>
+  </div>`;
+}
+
+function toggleShowArchived() {
+  S.showArchived = !S.showArchived;
+  renderInventory();
 }
 
 function renderCard(item) {
@@ -1461,12 +1516,9 @@ function renderCard(item) {
       <div class="card-footer">
         <span class="status-badge ${st}">${st}</span>
         <div class="card-icons">
-          <button class="icon-btn${listed ? ' on-list' : ''}" title="Toggle shopping list" onclick="toggleList(${item.id})"><i class="ti ti-shopping-cart"></i></button>
+          ${st === 'good' ? `<button class="icon-btn${listed ? ' on-list' : ''}" title="Toggle shopping list" onclick="toggleList(${item.id})"><i class="ti ti-shopping-cart"></i></button>` : ''}
           <button class="icon-btn" title="Edit" onclick="openEditForm(${item.id})"><i class="ti ti-edit"></i></button>
         </div>
-      </div>
-      <div class="card-btns">
-        <button class="btn-buy" onclick="openPurchaseForm(${item.id})">+ Buy</button>
       </div>
     </div>
   </div>`;
