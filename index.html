@@ -1832,9 +1832,9 @@ function renderStocktake() {
 }
 
 function updateBadge() {
-  const active = S.inventory.filter(i => i.archived !== 'true');
-  const critN = active.filter(i => status(i) === 'critical').length;
-  const lowN  = active.filter(i => status(i) === 'low').length;
+  const nonArchived = S.inventory.filter(i => i.archived !== 'true');
+  const critN = nonArchived.filter(i => status(i) === 'critical').length;
+  const lowN  = nonArchived.filter(i => status(i) === 'low').length;
   const wrap  = document.getElementById('alertChipWrap');
   const chip  = document.getElementById('alertChip');
   const label = document.getElementById('alertChipLabel');
@@ -1846,6 +1846,15 @@ function updateBadge() {
     return;
   }
   wrap.style.display = '';
+
+  // When the alert chip is the active filter, show it as active (tap to clear)
+  if (S.filterStatus !== 'all') {
+    chip.className = 'chip active';
+    label.innerHTML = (S.filterStatus === 'critical' ? `${critN} critical` : `${critN + lowN} items`) + ' <i class="ti ti-x" style="font-size:10px"></i>';
+    dd.innerHTML = '';
+    chip.onclick = () => clearAlertFilter();
+    return;
+  }
 
   if (critN > 0 && lowN === 0) {
     chip.className = 'chip alert-critical';
@@ -1872,6 +1881,13 @@ function updateBadge() {
   }
 }
 
+function clearAlertFilter() {
+  S.filterStatus = 'all';
+  switchTab('inventory');
+  renderInventory();
+  updateBadge();
+}
+
 function goToAlertFilter(filterVal) {
   closeAllChipDropdowns();
   S.filterStatus = filterVal;
@@ -1891,6 +1907,7 @@ function goToAlertFilter(filterVal) {
   if (clear) clear.classList.remove('visible');
   switchTab('inventory');
   renderInventory();
+  updateBadge();
 }
 
 // ═══════════════════════════════════════
