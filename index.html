@@ -1230,7 +1230,10 @@ function calcQty(invId) {
 
   const sorted = S.stocktakes
     .filter(s => String(s.inventory_id) === id)
-    .sort((a, b) => new Date(b.stocktake_date) - new Date(a.stocktake_date));
+    .sort((a, b) => {
+      const d = new Date(b.stocktake_date) - new Date(a.stocktake_date);
+      return d !== 0 ? d : (parseInt(b.id) || 0) - (parseInt(a.id) || 0);
+    });
 
   let baseG = 0, baseDate = new Date(0);
   if (sorted.length) {
