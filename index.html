@@ -1810,10 +1810,10 @@ function renderStocktakeList() {
         <div class="st-name">${esc(item.colour)}</div>
         <div class="st-meta">${esc(item.brand)} · ${esc(item.type)}</div>
       </div>
-      <input type="text" inputmode="decimal" class="st-input" id="st-${item.id}"
+      <input type="text" inputmode="text" enterkeyhint="done" class="st-input" id="st-${item.id}"
         placeholder="${fmtGrams(qty)}"
         onkeydown="stocktakeKeydown(event,'${item.id}')"
-        autocomplete="off">
+        autocomplete="off" autocorrect="off" autocapitalize="off">
     </div>`;
   }).join('');
 }
