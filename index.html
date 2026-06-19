@@ -729,7 +729,11 @@
     </div>
     <div class="form-group">
       <label>Low Stock Threshold (g)</label>
-      <input type="number" id="af-threshold" value="500" min="0">
+      <input type="number" id="af-low-threshold" value="400" min="0">
+    </div>
+    <div class="form-group">
+      <label>Critical Stock Threshold (g)</label>
+      <input type="number" id="af-critical-threshold" value="100" min="0">
     </div>
     <div class="form-group">
       <label>Initial Qty (spools)</label>
@@ -822,11 +826,20 @@
     </div>
     <div class="form-group">
       <label>Low Stock Threshold (g)</label>
-      <input type="number" id="ef-threshold" min="0">
+      <input type="number" id="ef-low-threshold" min="0">
+    </div>
+    <div class="form-group">
+      <label>Critical Stock Threshold (g)</label>
+      <input type="number" id="ef-critical-threshold" min="0">
     </div>
     <div class="form-group full">
       <label>Notes</label>
       <input type="text" id="ef-notes">
+    </div>
+    <div class="form-group full">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:400">
+        <input type="checkbox" id="ef-archived"> Archive — hide from inventory and buy list
+      </label>
     </div>
   </div>
   <div class="form-actions">
@@ -1094,9 +1107,9 @@ async function saveToGist() {
 }
 
 async function _pushToGist(token, gistId) {
-  const INV_H = 'id,brand,family,type,colour,hex,spool_weight_g,qty_on_hand,low_stock_threshold,on_shopping_list,notes\n';
+  const INV_H = 'id,brand,family,type,colour,hex,colour_family,spool_weight_g,qty_on_hand,low_stock_threshold_g,critical_stock_threshold_g,on_shopping_list,archived,notes\n';
   const PUR_H = 'id,inventory_id,purchase_date,qty_purchased,order_id,supplier,style,notes\n';
-  const STK_H = 'id,inventory_id,stocktake_date,qty_counted,notes\n';
+  const STK_H = 'id,inventory_id,stocktake_date,qty_counted_g,notes\n';
   const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
     method: 'PATCH',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -1167,17 +1180,22 @@ function calcQty(invId) {
     .filter(s => String(s.inventory_id) === id)
     .sort((a, b) => new Date(b.stocktake_date) - new Date(a.stocktake_date));
 
-  let base = 0, baseDate = new Date(0);
+  let baseG = 0, baseDate = new Date(0);
   if (sorted.length) {
-    base = parseInt(sorted[0].qty_counted) || 0;
-    baseDate = new Date(sorted[0].stocktake_date);
+    const latest = sorted[0];
+    if (latest.qty_counted_g !== undefined && latest.qty_counted_g !== '') {
+      baseG = parseInt(latest.qty_counted_g) || 0;
+    } else {
+      baseG = (parseInt(latest.qty_counted) || 0) * weight;
+    }
+    baseDate = new Date(latest.stocktake_date);
   }
 
-  const net = S.purchases
+  const purchasesG = S.purchases
     .filter(p => String(p.inventory_id) === id && new Date(p.purchase_date) > baseDate)
-    .reduce((sum, p) => sum + (parseInt(p.qty_purchased) || 0), 0);
+    .reduce((sum, p) => sum + (parseInt(p.qty_purchased) || 0) * weight, 0);
 
-  return Math.max(0, (base + net) * weight);
+  return Math.max(0, baseG + purchasesG);
 }
 
 function recalcAll() {
@@ -1294,8 +1312,16 @@ function setWeightDropdown(prefix, value) {
 
 function migrateThresholds() {
   S.inventory.forEach(item => {
-    const t = parseFloat(item.low_stock_threshold);
-    if (!isNaN(t) && t < 100) { item.low_stock_threshold = '500'; }
+    if (!item.low_stock_threshold_g) {
+      const old = parseFloat(item.low_stock_threshold);
+      item.low_stock_threshold_g = (!isNaN(old) && old >= 100) ? String(old) : '400';
+    }
+    if (!item.critical_stock_threshold_g) {
+      item.critical_stock_threshold_g = '100';
+    }
+    if (!item.archived) {
+      item.archived = 'false';
+    }
   });
 }
 
@@ -1318,10 +1344,11 @@ function fmtGrams(g) {
 }
 
 function status(item) {
-  const qty = parseInt(item.qty_on_hand) || 0;
-  const thr = parseInt(item.low_stock_threshold) || 500;
-  if (qty === 0) return 'critical';
-  if (qty <= thr) return 'low';
+  const qty  = parseInt(item.qty_on_hand) || 0;
+  const low  = parseInt(item.low_stock_threshold_g) || parseInt(item.low_stock_threshold) || 400;
+  const crit = parseInt(item.critical_stock_threshold_g) || 100;
+  if (qty <= crit) return 'critical';
+  if (qty <= low)  return 'low';
   return 'good';
 }
 
@@ -1561,6 +1588,10 @@ function renderStocktake() {
     <button class="btn-sm" onclick="if(confirm('Disconnect and return to setup screen?')) disconnect()"><i class="ti ti-plug-x"></i> Disconnect</button>
   </div>
   <div class="data-panel">
+    <span class="data-panel-label"><i class="ti ti-database-import"></i> One-time migration</span>
+    <button class="btn-sm" onclick="runStocktakeMigration()">Run 2026-06-19 stocktake migration</button>
+  </div>
+  <div class="data-panel">
     <span class="data-panel-label"><i class="ti ti-upload"></i> Import CSV</span>
     <label class="btn-sm"><i class="ti ti-database-import"></i> inventory.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('inventory',this)"></label>
     <label class="btn-sm"><i class="ti ti-database-import"></i> purchases.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('purchases',this)"></label>
@@ -1785,9 +1816,11 @@ function saveNewFilament() {
     colour_family:   hexToColourFamily(document.getElementById('af-hex').value),
     spool_weight_g:  getWeightValue('af'),
     qty_on_hand:     String(qty),
-    low_stock_threshold: document.getElementById('af-threshold').value||'500',
-    on_shopping_list: 'false',
-    notes:           document.getElementById('af-notes').value.trim(),
+    low_stock_threshold_g:      document.getElementById('af-low-threshold').value || '400',
+    critical_stock_threshold_g: document.getElementById('af-critical-threshold').value || '100',
+    on_shopping_list:           'false',
+    archived:                   'false',
+    notes:                      document.getElementById('af-notes').value.trim(),
   });
 
   const supplier = document.getElementById('af-supplier').value.trim();
@@ -1825,8 +1858,10 @@ function openEditForm(id) {
   document.getElementById('ef-hex').value      = item.hex||'#888888';
   document.getElementById('ef-colour-family').value = item.colour_family||'';
   setWeightDropdown('ef', item.spool_weight_g||'1000');
-  document.getElementById('ef-threshold').value = item.low_stock_threshold||'500';
-  document.getElementById('ef-notes').value    = item.notes||'';
+  document.getElementById('ef-low-threshold').value      = item.low_stock_threshold_g || item.low_stock_threshold || '400';
+  document.getElementById('ef-critical-threshold').value = item.critical_stock_threshold_g || '100';
+  document.getElementById('ef-notes').value               = item.notes || '';
+  document.getElementById('ef-archived').checked          = item.archived === 'true';
   document.getElementById('editFormPanel').classList.add('show');
   document.getElementById('addFormPanel').classList.remove('show');
   document.getElementById('purchaseFormPanel').classList.remove('show');
@@ -1844,9 +1879,11 @@ function saveEdit() {
   item.colour              = document.getElementById('ef-colour').value.trim();
   item.hex                 = document.getElementById('ef-hex').value;
   item.colour_family       = document.getElementById('ef-colour-family').value || hexToColourFamily(item.hex);
-  item.spool_weight_g      = getWeightValue('ef');
-  item.low_stock_threshold = document.getElementById('ef-threshold').value;
-  item.notes               = document.getElementById('ef-notes').value.trim();
+  item.spool_weight_g             = getWeightValue('ef');
+  item.low_stock_threshold_g      = document.getElementById('ef-low-threshold').value || '400';
+  item.critical_stock_threshold_g = document.getElementById('ef-critical-threshold').value || '100';
+  item.notes                      = document.getElementById('ef-notes').value.trim();
+  item.archived                   = document.getElementById('ef-archived').checked ? 'true' : 'false';
   setDirty(true); renderAll(); closeEditForm();
   notify(`Updated ${item.colour}.`, 'success');
 }
@@ -1947,6 +1984,68 @@ function importStocktakesFile(inp) {
   rd.readAsText(file);
 }
 
+function runStocktakeMigration() {
+  if (!confirm('This will replace all stocktake records with the 2026-06-19 count and update inventory fields. Your backup should already be saved. Proceed?')) return;
+
+  const rows = [
+    {id:'1',  qty:0,    family:'Black',   hex:'#1A1A1A'},
+    {id:'6',  qty:1100, family:'Black',   hex:'#1C1C1C'},
+    {id:'30', qty:900,  family:'Black',   hex:'#2C2C2C'},
+    {id:'7',  qty:1300, family:'Blue',    hex:'#2E6BD6'},
+    {id:'10', qty:1000, family:'Blue',    hex:'#1A2C6B'},
+    {id:'24', qty:800,  family:'Blue',    hex:'#2B3D6B'},
+    {id:'9',  qty:1000, family:'Brown',   hex:'#7B3D25'},
+    {id:'15', qty:900,  family:'Brown',   hex:'#B07B4A'},
+    {id:'13', qty:1000, family:'Green',   hex:'#2E8B2E'},
+    {id:'16', qty:1000, family:'Green',   hex:'#707830'},
+    {id:'18', qty:900,  family:'Green',   hex:'#3CB85B'},
+    {id:'19', qty:900,  family:'Green',   hex:'#1D5233'},
+    {id:'14', qty:600,  family:'Grey',    hex:'#888888'},
+    {id:'22', qty:1200, family:'Grey',    hex:'#C0C0C0'},
+    {id:'23', qty:1000, family:'Natural', hex:'#D4A873'},
+    {id:'8',  qty:900,  family:'Natural', hex:'#EEE6D0'},
+    {id:'17', qty:900,  family:'Orange',  hex:'#E8721E'},
+    {id:'20', qty:1000, family:'Pink',    hex:'#E87099'},
+    {id:'25', qty:600,  family:'Purple',  hex:'#6667AB'},
+    {id:'2',  qty:0,    family:'Red',     hex:'#C41E3A'},
+    {id:'11', qty:900,  family:'Red',     hex:'#CC1111'},
+    {id:'21', qty:600,  family:'Red',     hex:'#D42B2B'},
+    {id:'4',  qty:700,  family:'Special', hex:'#B5F548'},
+    {id:'28', qty:700,  family:'Special', hex:'#D8EEF5'},
+    {id:'29', qty:600,  family:'Special', hex:'#C5A820'},
+    {id:'3',  qty:500,  family:'White',   hex:'#F5F5F5'},
+    {id:'5',  qty:1000, family:'White',   hex:'#F0EDE6'},
+    {id:'26', qty:1100, family:'White',   hex:'#FFF8EC'},
+    {id:'12', qty:600,  family:'Yellow',  hex:'#CFA523'},
+    {id:'27', qty:900,  family:'Yellow',  hex:'#F2D31E'},
+  ];
+
+  const skipped = [];
+  S.stocktakes = [];
+
+  rows.forEach((row, i) => {
+    const inv = S.inventory.find(item => String(item.id) === row.id);
+    if (!inv) { skipped.push(row.id); return; }
+    inv.colour_family           = row.family;
+    inv.hex                     = row.hex;
+    inv.low_stock_threshold_g   = '400';
+    inv.critical_stock_threshold_g = '100';
+    S.stocktakes.push({
+      id:             String(i + 1),
+      inventory_id:   row.id,
+      stocktake_date: '2026-06-19',
+      qty_counted_g:  String(row.qty),
+      notes:          '',
+    });
+  });
+
+  recalcAll(); setDirty(true);
+  saveToGist();
+  renderAll();
+  const msg = skipped.length ? `Migration complete — ${rows.length - skipped.length} records created. Skipped IDs: ${skipped.join(', ')}.` : `Migration complete — ${rows.length} stocktake records created, inventory updated.`;
+  notify(msg, 'success');
+}
+
 // ═══════════════════════════════════════
 //  CSV / EXPORT / IMPORT
 // ═══════════════════════════════════════
@@ -1970,7 +2069,7 @@ function dlCSV(type) {
   if (type==='inventory') { data = toCSV(S.inventory); name = 'inventory.csv'; }
   else if (type==='purchases') { data = toCSV(S.purchases); name = 'purchases.csv'; }
   else {
-    data = S.stocktakes.length ? toCSV(S.stocktakes) : headerOnlyCSV(['id','inventory_id','stocktake_date','qty_counted','notes']);
+    data = S.stocktakes.length ? toCSV(S.stocktakes) : headerOnlyCSV(['id','inventory_id','stocktake_date','qty_counted_g','notes']);
     name = 'stocktakes.csv';
   }
   triggerDL(new Blob([data],{type:'text/csv'}), name);
@@ -1980,7 +2079,7 @@ async function exportAllZip() {
   const zip = new JSZip();
   zip.file('inventory.csv', toCSV(S.inventory));
   zip.file('purchases.csv', toCSV(S.purchases));
-  zip.file('stocktakes.csv', S.stocktakes.length ? toCSV(S.stocktakes) : headerOnlyCSV(['id','inventory_id','stocktake_date','qty_counted','notes']));
+  zip.file('stocktakes.csv', S.stocktakes.length ? toCSV(S.stocktakes) : headerOnlyCSV(['id','inventory_id','stocktake_date','qty_counted_g','notes']));
   const blob = await zip.generateAsync({type:'blob'});
   triggerDL(blob, 'filament-tracker-data.zip');
 }
