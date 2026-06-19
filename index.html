@@ -470,15 +470,17 @@
     .st-meta { font-size: 11px; color: var(--color-text-secondary); }
     .st-calc { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--color-text-secondary); white-space: nowrap; }
     .st-input {
-      width: 58px; padding: 6px 7px;
+      width: 72px; padding: 6px 7px;
       border: 1px solid var(--color-border-tertiary);
       border-radius: 6px;
       background: var(--color-background-secondary);
       color: var(--color-text-primary);
       font-family: 'JetBrains Mono', monospace;
       font-size: 14px; text-align: center; outline: none;
+      flex-shrink: 0;
     }
     .st-input:focus { border-color: var(--accent); }
+    .st-input.saved { border-color: var(--color-text-success, #22c55e); transition: border-color 0.2s; }
 
     /* ── EXPORT / IMPORT PANELS ── */
     .data-panel {
@@ -487,9 +489,10 @@
       border-radius: 10px;
       padding: 14px 18px;
       margin-top: 14px;
-      display: flex; align-items: center; gap: 9px; flex-wrap: wrap;
+      display: flex; flex-direction: column; gap: 10px;
     }
-    .data-panel-label { font-size: 13px; font-weight: 600; flex: 1; min-width: 120px; display: flex; align-items: center; gap: 6px; }
+    .data-panel-label { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .data-panel-btns { display: flex; gap: 8px; flex-wrap: wrap; }
     .btn-sm {
       border: 1px solid var(--color-border-tertiary);
       background: var(--color-background-secondary);
@@ -988,6 +991,9 @@ const S = {
   purchaseId: null,
   pendingUsedId: null,
   dirty: false,
+  stFilterFamily: 'all',
+  stFilterColour: 'all',
+  stSearch: '',
 };
 
 function setDirty(val) {
@@ -1553,52 +1559,276 @@ function renderHistory() {
   document.getElementById('historyContent').innerHTML = html;
 }
 
-function renderStocktake() {
-  let html = `<div class="stocktake-intro">
-    <h3>Physical stock count</h3>
-    <p>Enter the actual count for items where the calculated qty differs from what's on your shelf. Only changed values write a new stocktake record.</p>
-    <div class="stocktake-intro-btns">
-      <button class="btn-primary" onclick="confirmStocktake()"><i class="ti ti-clipboard-check"></i> Confirm stocktake</button>
-      <label class="btn-secondary" style="cursor:pointer"><i class="ti ti-upload"></i> Import stocktakes.csv<input type="file" accept=".csv" style="display:none" onchange="importStocktakesFile(this)"></label>
-    </div>
-  </div>`;
+// ── SAFE MATHS ──
+function evalMath(expr) {
+  const clean = String(expr).replace(/\s/g, '');
+  if (!/^[\d+\-*/.()]+$/.test(clean)) return NaN;
+  try {
+    const result = new Function('return (' + clean + ')')();
+    return typeof result === 'number' && isFinite(result) ? Math.round(result) : NaN;
+  } catch { return NaN; }
+}
 
-  S.inventory.forEach(item => {
-    const qty = parseInt(item.qty_on_hand)||0;
-    html += `<div class="stocktake-row">
-      <div class="colour-dot" style="background:${esc(item.hex)};width:28px;height:28px;border-radius:6px;flex-shrink:0"></div>
+// ── STOCKTAKE FILTER / SEARCH ──
+function getStocktakeFiltered() {
+  const ff = S.stFilterFamily, fc = S.stFilterColour, q = S.stSearch.toLowerCase();
+  return S.inventory.filter(item => {
+    if (item.archived === 'true') return false;
+    if (ff !== 'all' && item.family !== ff) return false;
+    if (fc !== 'all' && item.colour_family !== fc) return false;
+    if (q) {
+      const hay = `${item.colour} ${item.brand} ${item.type} ${item.family}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}
+
+function buildStocktakeDropdowns() {
+  const ddFam = document.getElementById('stDropdownFamily');
+  if (!ddFam) return;
+  const families = [...new Set(S.inventory.filter(i => i.archived !== 'true').map(i => i.family).filter(Boolean))].sort();
+  const cf = S.stFilterFamily;
+  ddFam.innerHTML = `<div class="chip-option${cf==='all'?' selected':''}" data-value="all" onclick="selectStChip('family','all')">All</div>`
+    + families.map(f => `<div class="chip-option${cf===f?' selected':''}" data-value="${esc(f)}" onclick="selectStChip('family','${f.replace(/'/g,"\\'")}')"> ${esc(f)}</div>`).join('');
+
+  const ddCol = document.getElementById('stDropdownColour');
+  if (!ddCol) return;
+  const colours = [...new Set(S.inventory.filter(i => i.archived !== 'true').map(i => i.colour_family).filter(Boolean))].sort();
+  const cc = S.stFilterColour;
+  ddCol.innerHTML = `<div class="chip-option${cc==='all'?' selected':''}" data-value="all" onclick="selectStChip('colour','all')">All</div>`
+    + colours.map(c => `<div class="chip-option${cc===c?' selected':''}" data-value="${esc(c)}" onclick="selectStChip('colour','${c.replace(/'/g,"\\'")}')"> ${esc(c)}</div>`).join('');
+}
+
+function toggleStChipDropdown(name, e) {
+  e.stopPropagation();
+  const dd = document.getElementById('stDropdown' + name.charAt(0).toUpperCase() + name.slice(1));
+  const wasOpen = dd.classList.contains('open');
+  closeAllChipDropdowns();
+  if (!wasOpen) dd.classList.add('open');
+}
+
+function selectStChip(name, value) {
+  closeAllChipDropdowns();
+  if (name === 'family') {
+    S.stFilterFamily = value;
+    const label = document.getElementById('stChipFamilyLabel');
+    if (label) label.textContent = value === 'all' ? 'Family' : value;
+    const chip = document.getElementById('stChipFamily');
+    if (chip) chip.classList.toggle('active', value !== 'all');
+    document.querySelectorAll('#stDropdownFamily .chip-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
+  } else {
+    S.stFilterColour = value;
+    const label = document.getElementById('stChipColourLabel');
+    if (label) label.textContent = value === 'all' ? 'Colour' : value;
+    const chip = document.getElementById('stChipColour');
+    if (chip) chip.classList.toggle('active', value !== 'all');
+    document.querySelectorAll('#stDropdownColour .chip-option').forEach(o => o.classList.toggle('selected', o.dataset.value === value));
+  }
+  renderStocktakeList();
+}
+
+function handleStSearch(q) {
+  S.stSearch = q;
+  const clear = document.getElementById('stSearchClear');
+  if (clear) clear.classList.toggle('visible', q.length > 0);
+  renderStocktakeList();
+}
+
+function clearStSearch() {
+  S.stSearch = '';
+  const inp = document.getElementById('stSearchInput');
+  if (inp) inp.value = '';
+  const clear = document.getElementById('stSearchClear');
+  if (clear) clear.classList.remove('visible');
+  renderStocktakeList();
+}
+
+// ── STOCKTAKE LIST RENDER ──
+function renderStocktakeList() {
+  const listEl = document.getElementById('stList');
+  if (!listEl) return;
+  const items = getStocktakeFiltered();
+  if (!items.length) {
+    listEl.innerHTML = '<div class="empty-state"><i class="ti ti-search"></i><p>No filaments match</p></div>';
+    return;
+  }
+  listEl.innerHTML = items.map(item => {
+    const qty = parseInt(item.qty_on_hand) || 0;
+    return `<div class="stocktake-row">
+      <div class="colour-dot" style="background:${esc(item.hex)}"></div>
       <div class="st-info">
         <div class="st-name">${esc(item.colour)}</div>
         <div class="st-meta">${esc(item.brand)} · ${esc(item.type)}</div>
       </div>
-      <div class="st-calc">calc: ${qty}</div>
-      <input type="number" class="st-input" id="st-${item.id}" placeholder="${qty}" min="0" data-calc="${qty}">
+      <input type="text" inputmode="decimal" class="st-input" id="st-${item.id}"
+        placeholder="${fmtGrams(qty)}"
+        onkeydown="stocktakeKeydown(event,'${item.id}')"
+        autocomplete="off">
     </div>`;
-  });
+  }).join('');
+}
 
-  html += `<div class="data-panel">
+// ── STOCKTAKE ENTRY SAVE ──
+function stocktakeKeydown(e, itemId) {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const inp = e.target;
+  const raw = inp.value.trim();
+  if (!raw) { inp.blur(); return; }
+  const grams = evalMath(raw);
+  if (isNaN(grams) || grams < 0) {
+    notify('Invalid quantity — enter a number or simple maths like 100+200', 'error');
+    return;
+  }
+  saveStocktakeEntry(itemId, Math.round(grams), inp);
+}
+
+async function saveStocktakeEntry(itemId, grams, inp) {
+  S.stocktakes.push({
+    id:             String(nextId(S.stocktakes)),
+    inventory_id:   String(itemId),
+    stocktake_date: todayStr(),
+    qty_counted_g:  String(grams),
+    notes:          '',
+  });
+  recalcAll();
+  setDirty(true);
+  if (inp) {
+    inp.value = '';
+    const inv = S.inventory.find(i => String(i.id) === String(itemId));
+    inp.placeholder = fmtGrams(parseInt(inv?.qty_on_hand) || grams);
+    inp.classList.add('saved');
+    setTimeout(() => inp.classList.remove('saved'), 1200);
+    inp.blur();
+  }
+  renderInventory();
+  await saveToGistSilent();
+}
+
+async function saveToGistSilent() {
+  const token = lsGet(STORE_TOKEN), gistId = lsGet(STORE_GIST);
+  if (!token || !gistId) return;
+  try {
+    await _pushToGist(token, gistId);
+    setDirty(false);
+  } catch (e) {
+    notify(`Auto-save failed: ${e.message}`, 'error');
+  }
+}
+
+// ── FILLABLE CSV DOWNLOAD ──
+function dlFillableStocktake() {
+  const today = todayStr();
+  const rows = S.inventory
+    .filter(item => item.archived !== 'true')
+    .map(item => ({ id: item.id, colour: item.colour, brand: item.brand, type: item.type, qty_on_hand_g: '', stocktake_date: today }));
+  triggerDL(new Blob([toCSV(rows)], {type: 'text/csv'}), `stocktake_${today}.csv`);
+}
+
+// ── IMPORT STOCKTAKE CSV ──
+function importStocktakeCSV(inp) {
+  const file = inp.files[0]; if (!file) return;
+  inp.value = '';
+  const rd = new FileReader();
+  rd.onload = e => {
+    const rows = Papa.parse(e.target.result, {header: true, skipEmptyLines: true}).data;
+    const skipped = [], newRecords = [];
+    const today = todayStr();
+    rows.forEach(row => {
+      const id = String(row.id || '').trim();
+      const qtyRaw = String(row.qty_on_hand_g || '').trim();
+      if (!id || !qtyRaw) return;
+      const inv = S.inventory.find(i => String(i.id) === id);
+      if (!inv) { skipped.push(`ID ${id}`); return; }
+      const grams = parseInt(qtyRaw);
+      if (isNaN(grams) || grams < 0) { skipped.push(`ID ${id} (bad qty)`); return; }
+      newRecords.push({ id: '', inventory_id: id, stocktake_date: row.stocktake_date || today, qty_counted_g: String(grams), notes: '' });
+    });
+    let nid = nextId(S.stocktakes);
+    newRecords.forEach(r => { r.id = String(nid++); S.stocktakes.push(r); });
+    recalcAll(); setDirty(true);
+    saveToGist();
+    renderStocktakeList();
+    renderInventory();
+    const msg = skipped.length
+      ? `Imported ${newRecords.length} records. Skipped: ${skipped.join(', ')} — not found in inventory.`
+      : `Imported ${newRecords.length} stocktake records.`;
+    notify(msg, skipped.length ? 'error' : 'success');
+  };
+  rd.readAsText(file);
+}
+
+function renderStocktake() {
+  const stff = S.stFilterFamily, stfc = S.stFilterColour, stq = S.stSearch;
+  const html = `
+  <div class="stocktake-intro">
+    <h3>Physical stock count</h3>
+    <p>Enter grams on hand and press Enter — saves to Gist immediately. Supports simple maths like 100+200+300.</p>
+    <div class="stocktake-intro-btns">
+      <button class="btn-secondary" onclick="dlFillableStocktake()"><i class="ti ti-table-down"></i> Download fillable CSV</button>
+      <label class="btn-secondary" style="cursor:pointer"><i class="ti ti-upload"></i> Import stocktake.csv<input type="file" accept=".csv" style="display:none" onchange="importStocktakeCSV(this)"></label>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <div class="chip-wrap">
+      <button class="chip${stff !== 'all' ? ' active' : ''}" id="stChipFamily" onclick="toggleStChipDropdown('Family',event)">
+        <span id="stChipFamilyLabel">${stff === 'all' ? 'Family' : esc(stff)}</span>
+        <i class="ti ti-chevron-down" style="font-size:10px"></i>
+      </button>
+      <div class="chip-dropdown" id="stDropdownFamily"></div>
+    </div>
+    <div class="chip-wrap">
+      <button class="chip${stfc !== 'all' ? ' active' : ''}" id="stChipColour" onclick="toggleStChipDropdown('Colour',event)">
+        <span id="stChipColourLabel">${stfc === 'all' ? 'Colour' : esc(stfc)}</span>
+        <i class="ti ti-chevron-down" style="font-size:10px"></i>
+      </button>
+      <div class="chip-dropdown" id="stDropdownColour"></div>
+    </div>
+    <div class="search-wrap">
+      <i class="ti ti-search search-icon"></i>
+      <input type="text" class="search-input" id="stSearchInput" placeholder="Search…"
+        oninput="handleStSearch(this.value)" autocomplete="off" value="${esc(stq)}">
+      <button class="search-clear${stq ? ' visible' : ''}" id="stSearchClear" onclick="clearStSearch()" tabindex="-1"><i class="ti ti-x"></i></button>
+    </div>
+  </div>
+
+  <div id="stList"></div>
+
+  <div class="data-panel">
     <span class="data-panel-label"><i class="ti ti-download"></i> Export CSVs</span>
-    <button class="btn-sm" onclick="dlCSV('inventory')">inventory.csv</button>
-    <button class="btn-sm" onclick="dlCSV('purchases')">purchases.csv</button>
-    <button class="btn-sm" onclick="dlCSV('stocktakes')">stocktakes.csv</button>
+    <div class="data-panel-btns">
+      <button class="btn-sm" onclick="dlCSV('inventory')">inventory.csv</button>
+      <button class="btn-sm" onclick="dlCSV('purchases')">purchases.csv</button>
+      <button class="btn-sm" onclick="dlCSV('stocktakes')">stocktakes.csv</button>
+    </div>
     <button class="btn-primary" onclick="exportAllZip()"><i class="ti ti-archive"></i> Download all (ZIP)</button>
   </div>
   <div class="data-panel">
+    <span class="data-panel-label"><i class="ti ti-upload"></i> Import CSV</span>
+    <div class="data-panel-btns">
+      <label class="btn-sm"><i class="ti ti-database-import"></i> inventory.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('inventory',this)"></label>
+      <label class="btn-sm"><i class="ti ti-database-import"></i> purchases.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('purchases',this)"></label>
+      <label class="btn-sm"><i class="ti ti-database-import"></i> stocktakes.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('stocktakes',this)"></label>
+    </div>
+  </div>
+  <div class="data-panel">
     <span class="data-panel-label"><i class="ti ti-plug-connected"></i> Gist connection</span>
-    <button class="btn-sm" onclick="if(confirm('Disconnect and return to setup screen?')) disconnect()"><i class="ti ti-plug-x"></i> Disconnect</button>
+    <div class="data-panel-btns">
+      <button class="btn-sm" onclick="if(confirm('Disconnect and return to setup screen?')) disconnect()"><i class="ti ti-plug-x"></i> Disconnect</button>
+    </div>
   </div>
   <div class="data-panel">
     <span class="data-panel-label"><i class="ti ti-database-import"></i> One-time migration</span>
-    <button class="btn-sm" onclick="runStocktakeMigration()">Run 2026-06-19 stocktake migration</button>
-  </div>
-  <div class="data-panel">
-    <span class="data-panel-label"><i class="ti ti-upload"></i> Import CSV</span>
-    <label class="btn-sm"><i class="ti ti-database-import"></i> inventory.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('inventory',this)"></label>
-    <label class="btn-sm"><i class="ti ti-database-import"></i> purchases.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('purchases',this)"></label>
-    <label class="btn-sm"><i class="ti ti-database-import"></i> stocktakes.csv<input type="file" accept=".csv" style="display:none" onchange="importCSV('stocktakes',this)"></label>
+    <div class="data-panel-btns">
+      <button class="btn-sm" onclick="runStocktakeMigration()">Run 2026-06-19 stocktake migration</button>
+    </div>
   </div>`;
 
   document.getElementById('stocktakeContent').innerHTML = html;
+  buildStocktakeDropdowns();
+  renderStocktakeList();
 }
 
 function updateBadge() {
