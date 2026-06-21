@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Filament Tracker — Testing Sheet</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; color: #1a1a1a; background: #f5f5f7; padding: 20px; line-height: 1.5; }
+  .card { background: #fff; border-radius: 14px; padding: 20px 24px; max-width: 680px; margin: 0 auto; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { font-size: 12px; color: #888; margin-bottom: 16px; }
+  h2 { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: #888; margin: 18px 0 6px; padding-bottom: 5px; border-bottom: 1px solid #eee; }
+  .check-row { display: flex; align-items: flex-start; gap: 9px; padding: 5px 4px; border-radius: 6px; cursor: pointer; }
+  .check-row:hover { background: #f9f9f9; }
+  .check-row input[type=checkbox] { margin-top: 2px; flex-shrink: 0; width: 15px; height: 15px; accent-color: #2d7a4f; cursor: pointer; }
+  .check-row label { font-size: 13px; cursor: pointer; flex: 1; }
+  .check-row label.done { text-decoration: line-through; color: #aaa; }
+
+  .progress-wrap { margin-bottom: 16px; }
+  .progress-label { font-size: 12px; color: #888; margin-bottom: 5px; }
+  .progress-bar { background: #eee; border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-fill { background: #2d7a4f; height: 100%; border-radius: 4px; transition: width 0.3s; }
+
+  .legend { display: flex; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+  .badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 8px; }
+  .bug  { background: #fee2e2; color: #991b1b; }
+  .ux   { background: #fef3c7; color: #92400e; }
+  .idea { background: #e0e7ff; color: #3730a3; }
+  .legend-item { font-size: 12px; color: #666; display: flex; align-items: center; gap: 5px; }
+
+  hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
+
+  .note-area label { font-size: 12px; color: #888; display: block; margin-bottom: 6px; }
+  .note-area textarea {
+    width: 100%; min-height: 140px; resize: vertical;
+    border: 1px solid #ddd; border-radius: 8px;
+    padding: 10px 12px; font-family: inherit; font-size: 13px;
+    color: #1a1a1a; background: #fff; line-height: 1.6;
+  }
+  .note-area textarea:focus { outline: none; border-color: #888; }
+
+  @media print {
+    body { background: white; padding: 0; }
+    .card { box-shadow: none; padding: 0; }
+    .progress-wrap, .note-area textarea { -webkit-print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Filament Tracker — Testing Sheet</h1>
+  <p class="subtitle">Work through each item in Chrome using the GitHub Pages URL or http://localhost:3456. Note issues below.</p>
+
+  <div class="legend">
+    <span class="legend-item"><span class="badge bug">Bug</span> Broken / doesn't work</span>
+    <span class="legend-item"><span class="badge ux">UX</span> Works but feels wrong</span>
+    <span class="legend-item"><span class="badge idea">Idea</span> New thought</span>
+  </div>
+
+  <div class="progress-wrap">
+    <p class="progress-label" id="progressLabel">0 of 32 checked</p>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <h2>Filter bar</h2>
+  <div class="check-row"><input type="checkbox" id="c1"><label for="c1">Status chip — tap it, dropdown opens with All / Low stock / Critical</label></div>
+  <div class="check-row"><input type="checkbox" id="c2"><label for="c2">Status chip — selecting "Low stock" highlights chip and filters cards</label></div>
+  <div class="check-row"><input type="checkbox" id="c3"><label for="c3">Status chip — selecting "All" clears the filter, chip returns to default</label></div>
+  <div class="check-row"><input type="checkbox" id="c4"><label for="c4">Family chip — options match the families in your actual inventory</label></div>
+  <div class="check-row"><input type="checkbox" id="c5"><label for="c5">Family chip — selecting a family filters cards correctly</label></div>
+  <div class="check-row"><input type="checkbox" id="c6"><label for="c6">Colour chip — options match colour families in your inventory</label></div>
+  <div class="check-row"><input type="checkbox" id="c7"><label for="c7">Colour chip — brown filaments appear under Brown, not Orange</label></div>
+  <div class="check-row"><input type="checkbox" id="c8"><label for="c8">Two chips active at once — both filters apply together correctly</label></div>
+  <div class="check-row"><input type="checkbox" id="c9"><label for="c9">Search bar — typing filters cards in real time</label></div>
+  <div class="check-row"><input type="checkbox" id="c10"><label for="c10">Search ✕ button — appears when typing, clears search when tapped</label></div>
+  <div class="check-row"><input type="checkbox" id="c11"><label for="c11">Result count — hidden by default, shows "Showing X of 30" when filtering</label></div>
+  <div class="check-row"><input type="checkbox" id="c12"><label for="c12">Tapping anywhere outside a dropdown closes it</label></div>
+
+  <h2>Inventory cards</h2>
+  <div class="check-row"><input type="checkbox" id="c13"><label for="c13">Colour swatch shows the right colour for each filament</label></div>
+  <div class="check-row"><input type="checkbox" id="c14"><label for="c14">Quantity shows in grams (e.g. 1kg, 500g) not spool count</label></div>
+  <div class="check-row"><input type="checkbox" id="c15"><label for="c15">Critical / Low badges appear on the right cards</label></div>
+  <div class="check-row"><input type="checkbox" id="c16"><label for="c16">+ Buy button opens purchase form for the correct filament</label></div>
+  <div class="check-row"><input type="checkbox" id="c17"><label for="c17">Edit (pencil) button opens edit form pre-filled with correct data</label></div>
+
+  <h2>Add filament</h2>
+  <div class="check-row"><input type="checkbox" id="c18"><label for="c18">Brand dropdown includes all brands from your inventory</label></div>
+  <div class="check-row"><input type="checkbox" id="c19"><label for="c19">Add a filament — it appears in inventory with the right colour swatch</label></div>
+  <div class="check-row"><input type="checkbox" id="c20"><label for="c20">New filament gets correct colour family auto-assigned from hex</label></div>
+  <div class="check-row"><input type="checkbox" id="c21"><label for="c21">Cancel button closes the form without saving</label></div>
+
+  <h2>Edit filament</h2>
+  <div class="check-row"><input type="checkbox" id="c22"><label for="c22">Colour Family dropdown shows the current assigned family</label></div>
+  <div class="check-row"><input type="checkbox" id="c23"><label for="c23">Changing colour family and saving — Colour chip filter reflects the change</label></div>
+  <div class="check-row"><input type="checkbox" id="c24"><label for="c24">Edit a filament — changes save correctly and show on the card</label></div>
+
+  <h2>Other tabs and saving</h2>
+  <div class="check-row"><input type="checkbox" id="c25"><label for="c25">Shopping list — add a filament to list, then remove it</label></div>
+  <div class="check-row"><input type="checkbox" id="c26"><label for="c26">Purchase history — past purchases show correctly</label></div>
+  <div class="check-row"><input type="checkbox" id="c27"><label for="c27">Stocktake — record a count, quantity updates on the card</label></div>
+  <div class="check-row"><input type="checkbox" id="c28"><label for="c28">Save button pulses when there are unsaved changes</label></div>
+  <div class="check-row"><input type="checkbox" id="c29"><label for="c29">Save — syncs to Gist successfully, pulse stops</label></div>
+
+  <h2>Mobile and layout</h2>
+  <div class="check-row"><input type="checkbox" id="c30"><label for="c30">Bottom tab bar — all four tabs switch correctly</label></div>
+  <div class="check-row"><input type="checkbox" id="c31"><label for="c31">Filter bar fits on one row without wrapping</label></div>
+  <div class="check-row"><input type="checkbox" id="c32"><label for="c32">Forms are usable — buttons visible without excessive scrolling</label></div>
+
+  <hr>
+
+  <div class="note-area">
+    <label>Notes — record issues here, then share back with Claude to fix</label>
+    <textarea placeholder="🐛 Bug — [where] [what happened] [what I expected]&#10;😕 UX  — [where] [what felt wrong]&#10;💡 Idea — [feature or change]&#10;&#10;Examples:&#10;🐛 Bug — Colour chip: clear PLA shows as White, should be Natural&#10;😕 UX  — Edit form: colour family dropdown is hard to spot&#10;💡 Idea — show a count on the colour chip e.g. Red (4)"></textarea>
+  </div>
+</div>
+
+<script>
+  const boxes = document.querySelectorAll('input[type=checkbox]');
+  const total = boxes.length;
+  function update() {
+    const done = [...boxes].filter(b => b.checked).length;
+    document.getElementById('progressLabel').textContent = done + ' of ' + total + ' checked';
+    document.getElementById('progressFill').style.width = Math.round(done / total * 100) + '%';
+    boxes.forEach(b => {
+      const lbl = b.nextElementSibling;
+      if (lbl) lbl.classList.toggle('done', b.checked);
+    });
+  }
+  boxes.forEach(b => b.addEventListener('change', update));
+</script>
+</body>
+</html>
